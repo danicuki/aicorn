@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 360 120" width="360" height="120" role="img" aria-label="Aicorn">
+  <style>
+    .wordmark {
+      font-family: 'Fraunces', Georgia, 'Times New Roman', serif;
+      font-weight: 800;
+      font-size: 92px;
+      letter-spacing: -3px;
+      fill: #4A2F1B;
+    }
+  </style>
+  <!-- Use dotless ı (U+0131) so we can place our own colored dot -->
+  <text x="0" y="96" class="wordmark">Aıcorn</text>
+  <!-- Spark dot replacing the i tittle. Position tuned for Fraunces 800. -->
+  <circle cx="89" cy="29" r="9" fill="#F5B538"/>
+</svg>

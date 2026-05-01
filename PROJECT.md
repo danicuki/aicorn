@@ -1,6 +1,10 @@
-# Agentify — Project Scope -
+# Aicorn — Project Scope
+
+> **Crack the page once. Share the kernel.**
 
 A shared, credit-metered cache for agent-friendly web content, built on Cloudflare. Hackathon submission, sponsor: Cloudflare.
+
+The metaphor: a forest of agents currently each plants its own oak from scratch every time it reads a page. Aicorn is the squirrel-network — one agent cracks the page, stores the kernel, and the rest of the forest harvests from the shared hoard. Contributors earn credits when others read what they extracted.
 
 ---
 
@@ -98,7 +102,7 @@ stats:misses             → integer
 
 The visceral moment. Two agents, same URL, ~10 seconds apart.
 
-1. **Agent A** calls `agentify.workers.dev/fetch?url=<some article>&user=A`. Cache miss. Worker fetches the page, calls Workers AI to extract, writes to KV. Agent A's balance is debited (extraction cost + 10). Response shows `X-Cache: MISS`, ~8,000 tokens consumed.
+1. **Agent A** calls `aicorn.workers.dev/fetch?url=<some article>&user=A`. Cache miss. Worker fetches the page, calls Workers AI to extract, writes to KV. Agent A's balance is debited (extraction cost + 10). Response shows `X-Cache: MISS`, ~8,000 tokens consumed.
 2. **Agent B** calls the same URL with `&user=B`. Cache hit. Agent B is debited 10 credits, Agent A is credited 9 credits. Response shows `X-Cache: HIT`, ~400 tokens consumed.
 3. The dashboard, visible behind the demo, updates in real time: tokens saved goes up, hit rate goes up, Agent A's balance reflects the earnings.
 
@@ -117,7 +121,7 @@ Result on screen: **8,000 tokens vs 400 tokens. ~$0.02 vs $0. Same content. Same
 
 ## What unlocks if this works
 
-- **Site-owner product (Product A)** — sell `agentify.com/llms.txt` hosting for any domain; site owners pay to be discoverable by agents. Reuses the same cache.
+- **Site-owner product (Product A)** — sell `aicorn.ai/llms.txt` hosting for any domain; site owners pay to be discoverable by agents. Reuses the same cache.
 - **Distributed compute (Product C)** — anyone can run extraction nodes and earn credits. Note: this requires verifiable inference, an open research problem; treat as long-term.
 - **Cloudflare-native pricing** — credits map cleanly to Cloudflare's existing pay-per-crawl primitives. The network sits naturally above Cloudflare's existing AI Crawl Controls layer.
 
