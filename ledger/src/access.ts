@@ -16,6 +16,10 @@ interface UserRow {
   balance: number;
 }
 
+interface ContributorRow extends UserRow {
+  extraction_cost: number | null;
+}
+
 export async function ledgerAccess(request: Request, env: Env): Promise<Response> {
   const body = await readJson<AccessBody>(request);
   if (!body?.user_name || !body?.accessed_url) {
@@ -32,12 +36,12 @@ export async function ledgerAccess(request: Request, env: Env): Promise<Response
     .first<UserRow>();
 
   const contributor = await env.DB.prepare(
-    "SELECT u.id AS id, u.name AS name, u.balance AS balance " +
+    "SELECT u.id AS id, u.name AS name, u.balance AS balance, c.extraction_cost AS extraction_cost " +
       "FROM contributions c JOIN users u ON u.id = c.user_id " +
       "WHERE c.url = ? LIMIT 1",
   )
     .bind(url)
-    .first<UserRow>();
+    .first<ContributorRow>();
 
   // Caller may not yet exist; the canonical requester (existing or to-be-created)
   // and the user-creation statements are computed up-front but only committed
@@ -93,8 +97,8 @@ export async function ledgerAccess(request: Request, env: Env): Promise<Response
         now,
       ),
       env.DB.prepare(
-        "INSERT INTO contributions (user_id, url, earned, hit_count) VALUES (?, ?, 0, 0)",
-      ).bind(requester.id, url),
+        "INSERT INTO contributions (user_id, url, earned, hit_count, extraction_cost) VALUES (?, ?, 0, 0, ?)",
+      ).bind(requester.id, url, body.extraction_cost),
       env.DB.prepare("UPDATE stats SET value = value + 1 WHERE key = 'reads'"),
       env.DB.prepare("UPDATE stats SET value = value + 1 WHERE key = 'misses'"),
     ]);
@@ -199,6 +203,17 @@ export async function ledgerAccess(request: Request, env: Env): Promise<Response
     env.DB.prepare("UPDATE stats SET value = value + 1 WHERE key = 'reads'"),
     env.DB.prepare("UPDATE stats SET value = value + 1 WHERE key = 'hits'"),
   );
+
+  // Tokens saved on each cache hit = original extraction cost − what the reader paid (READ_COST).
+  // Skip when extraction_cost is NULL (legacy contributions from before the 0002 migration).
+  if (typeof contributor.extraction_cost === "number") {
+    const savings = contributor.extraction_cost - READ_COST;
+    stmts.push(
+      env.DB.prepare(
+        "UPDATE stats SET value = value + ? WHERE key = 'tokens_saved'",
+      ).bind(savings),
+    );
+  }
 
   await env.DB.batch(stmts);
 

@@ -2,6 +2,7 @@ import { Env, json, html, readJson } from "./env";
 import { chargeUser, creditUser, SIGNUP_GRANT } from "./ledger";
 import { ADMIN_HTML } from "./admin_html";
 import { ACCESS_TESTER_HTML } from "./access_html";
+import { CONTRIBUTIONS_HTML } from "./contributions_html";
 
 interface UserRow {
   id: string;
@@ -17,6 +18,14 @@ export async function adminHandler(request: Request, env: Env): Promise<Response
 
   if (pathname === "/admin" && method === "GET") return html(ADMIN_HTML);
   if (pathname === "/admin/access" && method === "GET") return html(ACCESS_TESTER_HTML);
+  if (pathname === "/admin/contributions" && method === "GET") return html(CONTRIBUTIONS_HTML);
+  if (pathname === "/admin/contributions/list" && method === "GET") {
+    return listContributions(
+      env,
+      url.searchParams.get("user_name") ?? undefined,
+      url.searchParams.get("url") ?? undefined,
+    );
+  }
 
   if (pathname === "/admin/users" && method === "GET") return listUsers(env);
   if (pathname === "/admin/users" && method === "POST") return createUser(request, env);
@@ -30,6 +39,7 @@ export async function adminHandler(request: Request, env: Env): Promise<Response
 
     if (sub === "" && method === "GET") return getUserDetail(userId, env);
     if (sub === "" && method === "PATCH") return updateUser(userId, request, env);
+    if (sub === "" && method === "DELETE") return deleteUser(userId, env);
     if (sub === "/charge" && method === "POST") return adminCharge(userId, request, env);
     if (sub === "/credit" && method === "POST") return adminCredit(userId, request, env);
   }
@@ -146,6 +156,49 @@ async function adminCharge(userId: string, request: Request, env: Env): Promise<
   const result = await chargeUser(env, userId, body.amount, body.reason ?? "admin_charge");
   if (!result.ok) return json({ error: result.error, balance: result.balance }, result.status);
   return json({ ok: true, new_balance: result.new_balance });
+}
+
+async function listContributions(
+  env: Env,
+  userNameFilter?: string,
+  urlFilter?: string,
+): Promise<Response> {
+  let sql =
+    "SELECT c.user_id AS user_id, u.name AS user_name, c.url AS url, " +
+    "c.earned AS earned, c.hit_count AS hit_count, c.extraction_cost AS extraction_cost " +
+    "FROM contributions c JOIN users u ON u.id = c.user_id";
+  const conditions: string[] = [];
+  const params: unknown[] = [];
+  if (userNameFilter && userNameFilter.trim()) {
+    conditions.push("u.name LIKE ?");
+    params.push(`%${userNameFilter.trim()}%`);
+  }
+  if (urlFilter && urlFilter.trim()) {
+    conditions.push("c.url LIKE ?");
+    params.push(`%${urlFilter.trim()}%`);
+  }
+  if (conditions.length) sql += " WHERE " + conditions.join(" AND ");
+  sql += " ORDER BY c.earned DESC, c.hit_count DESC LIMIT 200";
+
+  const rows = await env.DB.prepare(sql)
+    .bind(...params)
+    .all();
+  return json({ contributions: rows.results });
+}
+
+async function deleteUser(userId: string, env: Env): Promise<Response> {
+  const user = await env.DB.prepare("SELECT id FROM users WHERE id = ?")
+    .bind(userId)
+    .first();
+  if (!user) return json({ error: "user_not_found" }, 404);
+
+  await env.DB.batch([
+    env.DB.prepare("DELETE FROM activity WHERE user_id = ?").bind(userId),
+    env.DB.prepare("DELETE FROM contributions WHERE user_id = ?").bind(userId),
+    env.DB.prepare("DELETE FROM users WHERE id = ?").bind(userId),
+  ]);
+
+  return json({ ok: true });
 }
 
 const STAT_KEYS = ["tokens_saved", "reads", "hits", "misses"] as const;

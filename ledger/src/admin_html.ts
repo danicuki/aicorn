@@ -37,6 +37,10 @@ export const ADMIN_HTML = `<!DOCTYPE html>
   button { cursor: pointer; border-color: var(--fg); }
   button:hover { background: var(--fg); color: #fff; }
   button.back { margin-bottom: 1rem; }
+  button.danger { border-color: var(--bad); color: var(--bad); }
+  button.danger:hover { background: var(--bad); color: #fff; }
+  .danger-zone { margin-top: 2.5rem; padding-top: 1.2rem; border-top: 1px solid var(--line); }
+  .danger-zone .note { color: var(--muted); font-size: 0.8rem; margin-left: 0.7rem; }
 
   table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
   th, td { text-align: left; padding: 0.5rem 0.6rem; border-bottom: 1px solid var(--line); }
@@ -79,7 +83,7 @@ export const ADMIN_HTML = `<!DOCTYPE html>
 </head>
 <body>
   <h1>Aicorn Ledger Admin</h1>
-  <div class="sub">D1 · users / activity / contributions / stats · <a href="/admin/access" style="color:var(--accent)">access tester →</a></div>
+  <div class="sub">D1 · users / activity / contributions / stats · <a href="/admin/access" style="color:var(--accent)">access tester →</a> · <a href="/admin/contributions" style="color:var(--accent)">contributions →</a></div>
 
   <div id="list-view">
     <h2>Stats</h2>
@@ -150,6 +154,11 @@ export const ADMIN_HTML = `<!DOCTYPE html>
           <tbody id="activity-tbody"><tr><td colspan="5" style="color:var(--muted)">none</td></tr></tbody>
         </table>
       </div>
+    </div>
+
+    <div class="danger-zone">
+      <button class="danger" id="delete-user-btn" type="button">Delete this user</button>
+      <span class="note">removes user, activity, and contributions. Irreversible.</span>
     </div>
   </div>
 
@@ -334,6 +343,20 @@ window.addEventListener("popstate", () => {
 });
 
 $("back-btn").addEventListener("click", goBack);
+
+$("delete-user-btn").addEventListener("click", async () => {
+  if (!currentUserId) return;
+  const label = $("detail-title").textContent || currentUserId;
+  if (!confirm('Delete user "' + label + '"? This removes their balance, activity, and contributions. Irreversible.')) return;
+  try {
+    await api("DELETE", "/admin/users/" + encodeURIComponent(currentUserId));
+    toast("Deleted " + label);
+    history.replaceState({ view: "list" }, "", "/admin");
+    showList();
+    await loadUsers();
+    await loadStats();
+  } catch (err) { toast(err.message, true); }
+});
 
 $("create-form").addEventListener("submit", async (e) => {
   e.preventDefault();
