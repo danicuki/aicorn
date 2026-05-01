@@ -1,0 +1,29 @@
+{
+  "name": "aicorn",
+  "owner": {
+    "name": "Nikolay Telepenin",
+    "email": "telepenin.nikolay@gmail.com",
+    "url": "https://github.com/telepenin"
+  },
+  "metadata": {
+    "description": "Marketplace for the aicorn Claude Code plugin — routes WebFetch through the agentify shared cache.",
+    "version": "0.1.0"
+  },
+  "plugins": [
+    {
+      "name": "aicorn",
+      "source": "./plugin",
+      "description": "Route Claude Code's WebFetch through the agentify shared cache. Cleaner markdown, lower token cost on every page that another agent already visited.",
+      "version": "0.1.0",
+      "category": "integration",
+      "tags": ["webfetch", "cache", "agentify", "scraping", "markdown", "workers-ai", "cloudflare"],
+      "license": "MIT",
+      "author": {
+        "name": "Nikolay Telepenin",
+        "email": "telepenin.nikolay@gmail.com"
+      },
+      "homepage": "https://github.com/telepenin/aicorn",
+      "repository": "https://github.com/telepenin/aicorn"
+    }
+  ]
+}
