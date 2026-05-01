@@ -1,0 +1,9 @@
+# One URL per line. Lines starting with # and blank lines are ignored.
+# Mix of server-rendered, e-commerce, JS-SPA to surface where aicorn helps.
+
+https://example.com/
+https://en.wikipedia.org/wiki/Cloudflare
+https://en.wikipedia.org/wiki/Cache_(computing)
+https://developers.cloudflare.com/workers/
+https://www.auchan.pt/
+https://www.agentsday.org/

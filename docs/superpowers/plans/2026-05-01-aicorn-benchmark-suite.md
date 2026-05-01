@@ -1,6 +1,26 @@
 # Aicorn Benchmark Suite — Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **Status (2026-05-01):** v1 shipped — see `bench/` and the **v1 — Option B** section below. v1 = size-based comparison (no SDK, no API spend). The full SDK-driven plan (Tasks 1–9 below) is deferred to **v2** for when we want to also prove answer-quality parity, not just cost.
+
+## v1 — Option B (shipped)
+
+A simpler benchmark that compares the **size of the payload an agent would consume**, which is the dominant term in the consumer's Anthropic bill. No Claude API calls, no SDK setup, no model variability.
+
+For each URL in `bench/sites.txt`, fetch three pipes and report tokens + $:
+
+- **aicorn**: `GET <worker>/fetch?url=…&user=bench` → clean markdown via Workers AI extraction
+- **raw_html**: origin HTML, fed straight in
+- **turndown(html)**: origin HTML → `turndown` library → markdown (realistic naive baseline)
+
+Implementation: `bench/` (own npm subproject, `tsx` runner, ~150 lines of TS). Outputs JSON + markdown table per run. See `bench/README.md` for usage.
+
+Initial run results (`bench/results/<timestamp>.md`): aicorn pays **96%** less than `turndown(html)` and **99%** less than `raw_html` in aggregate over 6 URLs. agentsday.org is the one degenerate case (JS-rendered SPA, all pipes fail to extract real content).
+
+---
+
+## v2 — Option A (SDK end-to-end, deferred)
+
+The plan below stays as-is for when we need to also measure answer correctness, latency-with-model, and prompt-overhead cost — not just payload size. Skip the v2 work until v1 numbers stop being convincing.
 
 **Goal:** Measure the impact of routing Claude's `WebFetch` through the agentify cache. Run the same set of URL+prompt tasks twice — once with the `aicorn` plugin enabled, once without — and compare:
 
