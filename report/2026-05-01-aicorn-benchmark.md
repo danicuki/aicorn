@@ -9,6 +9,73 @@
 
 ---
 
+## How the three pipes work
+
+Each URL is fetched once through each pipe; the resulting payload is what would land in the model's context window if an agent fed it in.
+
+```
+                                ┌──────────────┐
+                                │  origin URL  │
+                                └──────┬───────┘
+                                       │ HTTP
+                ┌──────────────────────┼──────────────────────┐
+                ▼                      ▼                      ▼
+        ┌───────────────┐      ┌──────────────┐      ┌────────────────┐
+        │   raw HTML    │      │   Turndown   │      │    aicorn      │
+        │               │      │              │      │                │
+        │ literal bytes │      │ HTML library │      │ Workers AI     │
+        │ from origin   │      │ converts to  │      │ extracts main  │
+        │ (no transform)│      │ markdown     │      │ content + caches │
+        └───────────────┘      └──────────────┘      └────────────────┘
+                │                      │                      │
+                ▼                      ▼                      ▼
+            big & noisy            mid: chrome stays      small: only body
+```
+
+### `raw HTML` — pessimistic ceiling
+
+`curl <url>` and use whatever bytes come back. Includes:
+
+- `<!DOCTYPE>`, `<head>`, `<meta>`, all stylesheets and inline `<style>` blocks
+- All `<script>` blocks (often the largest part of a modern page)
+- All HTML tags + attributes (`class="…" id="…" data-…="…"` everywhere)
+- Page chrome: navigation, headers, footers, sidebars, ads, cookie banners
+- Repeated boilerplate that's the same on every page of the site
+
+No agent in practice does this — but it's the worst case if no transform is applied.
+
+### `Turndown(HTML)` — realistic baseline
+
+`raw HTML` run through [turndown](https://github.com/mixmark-io/turndown), a generic HTML → Markdown library. This is what most "fetch a URL" tools effectively produce, including (approximately) Claude Code's built-in `WebFetch`. Turndown:
+
+- ✓ drops `<script>`, `<style>`, `<noscript>` blocks
+- ✓ drops most HTML attributes
+- ✓ converts tags to markdown syntax (`<h1>` → `#`, `<a href>` → `[text](url)`, `<ul><li>` → `-`, code blocks, tables, etc.)
+- ✗ does **not** decide what's "main content" — keeps every nav menu, sidebar, footer, breadcrumb, "related articles" block
+
+Result: same visible content as the page, in markdown, with all the chrome still attached.
+
+### `aicorn` — main-content extraction
+
+`GET <worker>/fetch?url=…&user=…` against the agentify Worker. Internally the Worker:
+
+1. Looks up `sha256(url)` in Cloudflare KV (the cache).
+2. **Cache HIT:** returns the previously-extracted markdown immediately (~50 ms).
+3. **Cache MISS:** fetches the origin HTML, runs it through a Workers AI LLM with a prompt to keep only the main article content, writes the result to KV (~30–120 s for big pages, then HIT for everyone afterwards).
+
+Result: just the article body. Navigation, sidebars, ads, footers — gone.
+
+### Why each transform saves what it saves
+
+| Step | Drops | Typical reduction |
+|---|---|---|
+| raw → Turndown | scripts, styles, HTML tag scaffolding | 10–50% |
+| Turndown → aicorn | nav, sidebar, footer, ads, repeated boilerplate | 50–99% |
+
+The big win is the second step. An RFC's HTML scaffolding is ~12% of the byte budget; the actual chrome (toolbar, "view as plain text" links, status banner, footer) plus repeated cross-RFC navigation is ~99%.
+
+---
+
 ## Headline
 
 For the **6 URLs where every pipe succeeded**, the cumulative numbers an agent would pay Anthropic, per single fetch:
