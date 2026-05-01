@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="assets/logo-lockup.svg" alt="Aicorn" width="360">
+  <img src="assets/logo-spark.svg" alt="Aicorn" width="360">
 </p>
 
 <p align="center"><em>Crack the page once. Share the kernel.</em></p>
