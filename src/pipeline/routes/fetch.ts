@@ -5,14 +5,11 @@ import { readCache, writeCache, bumpHitCount } from "../cache/store";
 import type { CacheEntry } from "../cache/types";
 import { detectAgent } from "../lib/agent";
 import { estimateTokens } from "../lib/tokens";
-import { callCharge, callCredit } from "../lib/ledger-client";
+import { callAccess } from "../lib/ledger-client";
 import { extractMarkdown } from "../extraction/extract";
 import { fallbackForDemoUrl } from "../extraction/fallback";
 
-const READ_COST = 10;
-const CONTRIBUTOR_REWARD = 9;
-
-export function buildFetchRoute(rootApp: Hono<{ Bindings: Env }>) {
+export function buildFetchRoute() {
   const route = new Hono<{ Bindings: Env }>();
 
   route.get("/fetch", async (c) => {
@@ -26,32 +23,35 @@ export function buildFetchRoute(rootApp: Hono<{ Bindings: Env }>) {
     const existing = await readCache(c.env.KV, key);
 
     if (existing) {
-      // HIT path
-      const charge = await callCharge(rootApp, c.env, user, READ_COST, `read:${url}`);
-      if (!charge.ok) return c.json({ error: charge.error }, 402);
-
-      // Credit contributor (non-fatal if it fails)
-      if (existing.contributor_user_id !== user) {
-        await callCredit(rootApp, c.env, existing.contributor_user_id, CONTRIBUTOR_REWARD, url);
+      // HIT path. The ledger handles the read charge AND the contributor
+      // credit in a single call (and self-reads as a net −1 internally).
+      const access = await callAccess(c.env.LEDGER, user, url);
+      if (!access.ok) {
+        return c.json(
+          { error: access.error, balance: access.balance },
+          (access.status === 402 ? 402 : access.status || 500) as 402 | 500,
+        );
       }
 
       const updated = await bumpHitCount(c.env.KV, key);
-      const tokensSaved = (updated ?? existing).original_html_tokens - (updated ?? existing).extracted_tokens;
+      const entry = updated ?? existing;
+      const tokensSaved = entry.original_html_tokens - entry.extracted_tokens;
 
-      return new Response((updated ?? existing).markdown, {
+      return new Response(entry.markdown, {
         status: 200,
         headers: {
           "content-type": "text/markdown; charset=utf-8",
           "X-Cache": "HIT",
           "X-Tokens-Saved": String(Math.max(0, tokensSaved)),
-          "X-Cost": String(READ_COST),
+          "X-Cost": String(access.spent),
+          "X-Provider": access.provider?.name ?? "",
           "X-Agent": String(isAgent),
         },
       });
     }
 
-    // MISS path
-    const originRes = await fetch(url, { headers: { "user-agent": "agentify/0.1" } });
+    // MISS path: extract, then register caller as the URL's contributor on the ledger.
+    const originRes = await fetch(url, { headers: { "user-agent": "aicorn/0.1" } });
     if (!originRes.ok) return c.text(`origin ${originRes.status}`, 502);
     const html = await originRes.text();
 
@@ -69,14 +69,13 @@ export function buildFetchRoute(rootApp: Hono<{ Bindings: Env }>) {
     const extractedTokens = estimateTokens(markdown);
     const extractionCost = extractedTokens; // 1 credit per extracted token
 
-    const charge = await callCharge(
-      rootApp,
-      c.env,
-      user,
-      extractionCost + READ_COST,
-      `extract:${url}`,
-    );
-    if (!charge.ok) return c.json({ error: charge.error }, 402);
+    const access = await callAccess(c.env.LEDGER, user, url, extractionCost);
+    if (!access.ok) {
+      return c.json(
+        { error: access.error, balance: access.balance },
+        (access.status === 402 ? 402 : access.status || 500) as 402 | 500,
+      );
+    }
 
     const entry: CacheEntry = {
       markdown,
@@ -95,7 +94,7 @@ export function buildFetchRoute(rootApp: Hono<{ Bindings: Env }>) {
         "content-type": "text/markdown; charset=utf-8",
         "X-Cache": "MISS",
         "X-Tokens-Saved": "0",
-        "X-Cost": String(extractionCost + READ_COST),
+        "X-Cost": String(access.spent),
         "X-Agent": String(isAgent),
       },
     });

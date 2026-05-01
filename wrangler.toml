@@ -1,4 +1,4 @@
-name = "agentify"
+name = "aicorn"
 main = "src/pipeline/index.ts"
 compatibility_date = "2025-04-01"
 account_id = "a3f6110ffb293b679a2005dba4bb43dd"
@@ -13,3 +13,7 @@ binding = "AI"
 
 [vars]
 DEMO_URL = "https://example.com/article-we-show-on-stage"
+
+[[services]]
+binding = "LEDGER"
+service = "aicorn-ledger"

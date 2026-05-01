@@ -1,6 +1,6 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
-  "name": "agentify-ledger",
+  "name": "aicorn-ledger",
   "main": "src/index.ts",
   "compatibility_date": "2025-05-01",
   "d1_databases": [

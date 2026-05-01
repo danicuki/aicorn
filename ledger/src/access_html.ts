@@ -2,7 +2,7 @@ export const ACCESS_TESTER_HTML = `<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<title>Agentify · Access Tester</title>
+<title>Aicorn · Access Tester</title>
 <style>
   :root {
     --fg: #111;
@@ -98,7 +98,7 @@ export const ACCESS_TESTER_HTML = `<!DOCTYPE html>
 
 <script>
 const $ = (id) => document.getElementById(id);
-const HISTORY_KEY = "agentify_access_history";
+const HISTORY_KEY = "aicorn_access_history";
 const HISTORY_MAX = 50;
 const fmtTime = (ms) => new Date(ms).toLocaleTimeString();
 const escapeHtml = (s) => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));

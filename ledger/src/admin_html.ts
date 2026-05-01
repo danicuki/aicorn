@@ -2,7 +2,7 @@ export const ADMIN_HTML = `<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<title>Agentify Ledger Admin</title>
+<title>Aicorn Ledger Admin</title>
 <style>
   :root {
     --fg: #111;
@@ -78,7 +78,7 @@ export const ADMIN_HTML = `<!DOCTYPE html>
 </style>
 </head>
 <body>
-  <h1>Agentify Ledger Admin</h1>
+  <h1>Aicorn Ledger Admin</h1>
   <div class="sub">D1 · users / activity / contributions / stats · <a href="/admin/access" style="color:var(--accent)">access tester →</a></div>
 
   <div id="list-view">
@@ -96,7 +96,7 @@ export const ADMIN_HTML = `<!DOCTYPE html>
     <form id="create-form">
       <input id="create-id" placeholder="user_id (optional, auto if blank)">
       <input id="create-name" placeholder="display name (optional)">
-      <button type="submit">Create + 100-credit grant</button>
+      <button type="submit">Create + 5000-credit grant</button>
     </form>
 
     <h2>Users</h2>

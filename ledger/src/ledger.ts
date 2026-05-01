@@ -1,6 +1,6 @@
 import { Env, json, readJson } from "./env";
 
-export const SIGNUP_GRANT = 100;
+export const SIGNUP_GRANT = 5000;
 export const READ_COST = 10;
 export const CONTRIBUTOR_REWARD = 9;
 
