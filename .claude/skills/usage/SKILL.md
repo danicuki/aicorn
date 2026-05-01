@@ -1,6 +1,6 @@
 ---
 name: usage
-description: This skill should be used when the user asks about "Cloudflare usage", "free tier quota", "how close to the limit", "what's our quota", "Workers AI Neurons today", "KV writes today", "D1 row count today". Reports today's account-wide Cloudflare usage (Workers requests, Workers AI inferences, KV operations, D1 row reads/writes) against the free-tier limits, scoped to whatever account is configured in this project's `wrangler.toml`.
+description: This skill should be used when the user asks about "Cloudflare usage", "current usage", "how close to the limit", "what's our quota", "Workers AI Neurons today", "KV writes this month", "D1 rows so far". Reports account-wide usage against the Workers Paid plan allowances. Workers / KV / D1 are reported as month-to-date (Paid bills monthly); Workers AI is reported as today (its 10k-Neuron grant resets daily).
 allowed-tools: Bash
 ---
 
@@ -10,7 +10,7 @@ Run a single Python script that pulls today's usage from Cloudflare's GraphQL An
 
 ## When this applies
 
-Use it when the user wants to know how much of the free tier they've already burned today — not for historical or projected usage. Today, since 00:00 UTC. Examples that match:
+Use it when the user wants to know how much of the Paid-plan included allowance has been used so far this billing period. Workers / KV / D1 windows: month-to-date (current UTC calendar month). Workers AI window: today since 00:00 UTC (its free Neuron grant resets daily). Examples that match:
 
 - "How close are we to the Workers AI quota today?"
 - "Show our Cloudflare usage."
@@ -32,11 +32,12 @@ The script:
 1. Walks up from the current working directory to find `wrangler.toml`, reads the `account_id`.
 2. Calls `wrangler auth token` (last line of output is the bearer token).
 3. POSTs four GraphQL queries to `api.cloudflare.com/client/v4/graphql`:
-   - `workersInvocationsAdaptive` — Workers requests, errors, subrequests
-   - `kvOperationsAdaptiveGroups` — KV reads / writes / deletes / lists
-   - `d1AnalyticsAdaptiveGroups` — D1 rows read / rows written
-   - `aiInferenceAdaptiveGroups` — Workers AI inference count by model
-4. Prints a formatted report with status labels: `OK`, `WARN` (≥50%), `CRITICAL` (≥80%), `EXCEEDED` (≥100%).
+   - `workersInvocationsAdaptive` — Workers requests, errors, subrequests (month-to-date)
+   - `kvOperationsAdaptiveGroups` — KV reads / writes / deletes / lists (month-to-date)
+   - `d1AnalyticsAdaptiveGroups` — D1 rows read / rows written (month-to-date)
+   - `aiInferenceAdaptiveGroups` — Workers AI inference count by model (today)
+4. Compares each metric against the Workers Paid included allowance. Reaching 100% does **not** mean cut-off on Paid — it means PAYG overage starts billing.
+5. Prints status labels: `OK`, `WARN` (≥50%), `CRITICAL` (≥80%), `EXCEEDED` (≥100%, on Paid this is "now billing overage").
 
 ## Step 2 — Show the output
 

@@ -1,8 +1,13 @@
 #!/usr/bin/env python3
-"""Cloudflare current-day usage report against free-tier limits.
+"""Cloudflare usage report against Workers Paid plan allowances.
 
 Pulls data from the GraphQL Analytics API at api.cloudflare.com using
 wrangler's OAuth token (run `wrangler login` once before invoking).
+
+Time windows:
+  - Workers / KV / D1: month-to-date (Paid bills monthly).
+  - Workers AI:        today (free Neuron grant resets daily; overage
+                       bills at $0.011 per 1,000 Neurons).
 
 Datasets queried:
   - workersInvocationsAdaptive       (requests, errors, subrequests)
@@ -28,14 +33,19 @@ from typing import Any
 
 GRAPHQL_URL = "https://api.cloudflare.com/client/v4/graphql"
 
+# Workers Paid plan allowances. Workers / KV / D1 reset MONTHLY at the
+# start of each UTC calendar month and bill PAYG on overage. Workers AI
+# Neurons reset DAILY at 00:00 UTC; overage bills at $0.011 per 1,000.
 LIMITS = {
-    "workers_requests": 100_000,
-    "kv_reads": 100_000,
-    "kv_writes": 1_000,
-    "kv_deletes": 1_000,
-    "kv_lists": 1_000,
-    "d1_rows_read": 5_000_000,
-    "d1_rows_written": 100_000,
+    # Monthly (Workers / KV / D1)
+    "workers_requests": 10_000_000,
+    "kv_reads": 10_000_000,
+    "kv_writes": 1_000_000,
+    "kv_deletes": 1_000_000,
+    "kv_lists": 1_000_000,
+    "d1_rows_read": 25_000_000_000,
+    "d1_rows_written": 50_000_000,
+    # Daily (Workers AI free Neuron grant — same on Free and Paid)
     "ai_neurons": 10_000,
 }
 
@@ -117,6 +127,23 @@ def today_utc() -> tuple[str, str, str]:
     return d, f"{d}T00:00:00Z", f"{d}T23:59:59Z"
 
 
+def month_to_date_utc() -> tuple[str, str, str]:
+    """(YYYY-MM label, ISO datetime of month start, ISO datetime now-ish)."""
+    now = datetime.now(timezone.utc).replace(microsecond=0)
+    month_start = now.replace(day=1, hour=0, minute=0, second=0)
+    return (
+        month_start.strftime("%Y-%m"),
+        month_start.strftime("%Y-%m-%dT%H:%M:%SZ"),
+        now.strftime("%Y-%m-%dT%H:%M:%SZ"),
+    )
+
+
+def month_to_date_dates() -> tuple[str, str]:
+    """(YYYY-MM-DD month start, YYYY-MM-DD today). For D1's date filter."""
+    now = datetime.now(timezone.utc)
+    return now.replace(day=1).strftime("%Y-%m-%d"), now.strftime("%Y-%m-%d")
+
+
 def status_label(used: int, limit: int) -> str:
     pct = (used / limit) * 100 if limit else 0.0
     if used >= limit:
@@ -161,7 +188,7 @@ def report_workers(account_id: str, start: str, end: str, token: str) -> None:
         by_worker[name] = by_worker.get(name, 0) + r["sum"]["requests"]
 
     print()
-    print("Workers")
+    print("Workers (this month)")
     print(metric_row("Requests", total_req, LIMITS["workers_requests"]))
     print(f"  Errors             {num(total_err):>10}")
     print(f"  Subrequests        {num(total_sub):>10}")
@@ -199,7 +226,7 @@ def report_kv(account_id: str, start: str, end: str, token: str) -> None:
         by_ns_action[(ns, action)] = by_ns_action.get((ns, action), 0) + n
 
     print()
-    print("KV")
+    print("KV (this month)")
     for action, key in (("read", "kv_reads"), ("write", "kv_writes"),
                         ("delete", "kv_deletes"), ("list", "kv_lists")):
         used = by_action.get(action, 0)
@@ -216,12 +243,12 @@ def report_kv(account_id: str, start: str, end: str, token: str) -> None:
             print(f"    {ns[:16]}…  {ops_str}")
 
 
-def report_d1(account_id: str, date_str: str, token: str) -> None:
+def report_d1(account_id: str, date_geq: str, date_leq: str, token: str) -> None:
     q = f"""query {{
       viewer {{
         accounts(filter: {{accountTag: "{account_id}"}}) {{
           d1AnalyticsAdaptiveGroups(
-            filter: {{date_geq: "{date_str}", date_leq: "{date_str}"}}
+            filter: {{date_geq: "{date_geq}", date_leq: "{date_leq}"}}
             limit: 100
           ) {{
             sum {{ rowsRead rowsWritten }}
@@ -241,7 +268,7 @@ def report_d1(account_id: str, date_str: str, token: str) -> None:
         by_db[db] = (cur_r + r["sum"]["rowsRead"], cur_w + r["sum"]["rowsWritten"])
 
     print()
-    print("D1")
+    print("D1 (this month)")
     print(metric_row("Rows read", total_read, LIMITS["d1_rows_read"]))
     print(metric_row("Rows written", total_write, LIMITS["d1_rows_written"]))
     if by_db:
@@ -278,7 +305,7 @@ def report_ai(account_id: str, start: str, end: str, token: str) -> None:
         est_neurons += n * per
 
     print()
-    print("Workers AI")
+    print("Workers AI (today)")
     print(f"  Inferences         {num(total_inf):>10}")
     print(metric_row("Est. Neurons", est_neurons, LIMITS["ai_neurons"]))
     print("  (Neurons estimated from inference count and per-model heuristics —")
@@ -294,23 +321,28 @@ def main() -> None:
     toml_path = find_wrangler_toml()
     account_id = parse_account_id(toml_path)
     token = get_token()
-    date_str, start, end = today_utc()
+    date_str, today_start, today_end = today_utc()
+    month_label, month_start, month_end = month_to_date_utc()
+    d1_geq, d1_leq = month_to_date_dates()
 
     print()
-    print(f"Cloudflare usage — {date_str} UTC (since 00:00)")
+    print(f"Cloudflare usage — {date_str} UTC")
+    print(f"Plan:    Workers Paid (monthly allowances + PAYG overage)")
+    print(f"Window:  {month_label} month-to-date for Workers/KV/D1; today for AI")
     print(f"Account: {account_id[:8]}…  (from {toml_path})")
     print("─" * 64)
 
-    report_workers(account_id, start, end, token)
-    report_kv(account_id, start, end, token)
-    report_d1(account_id, date_str, token)
-    report_ai(account_id, start, end, token)
+    report_workers(account_id, month_start, month_end, token)
+    report_kv(account_id, month_start, month_end, token)
+    report_d1(account_id, d1_geq, d1_leq, token)
+    report_ai(account_id, today_start, today_end, token)
 
     print()
     print("─" * 64)
     print("Source: api.cloudflare.com/client/v4/graphql")
     print("Auth:   wrangler OAuth (use `wrangler logout` to revoke)")
     print("Browser Rendering usage is not in GraphQL Analytics — check the dashboard.")
+    print("Overage on Paid: $0.30/M Workers req · $5/M KV write · $1/M D1 row · $0.011/1k Neurons.")
     print()
 
 
