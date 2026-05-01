@@ -1,9 +1,23 @@
-# One URL per line. Lines starting with # and blank lines are ignored.
-# Mix of server-rendered, e-commerce, JS-SPA to surface where aicorn helps.
+# Curated set of mostly-text, server-rendered URLs for measuring extraction
+# economy across the three pipes (aicorn / raw_html / turndown).
 
-https://example.com/
-https://en.wikipedia.org/wiki/Cloudflare
-https://en.wikipedia.org/wiki/Cache_(computing)
-https://developers.cloudflare.com/workers/
-https://www.auchan.pt/
-https://www.agentsday.org/
+https://httpforever.com/
+https://info.cern.ch/
+https://neverssl.com/
+https://example.org/
+https://example.net/
+https://iana.org/domains/reserved
+https://www.gnu.org/licenses/gpl-3.0.txt
+https://www.rfc-editor.org/rfc/rfc2616
+https://www.rfc-editor.org/rfc/rfc9110
+https://www.w3.org/TR/html401/
+https://www.w3.org/TR/CSS2/
+https://www.w3.org/People/Berners-Lee/
+https://www.ietf.org/rfc/rfc7231.txt
+https://www.planetpython.org/
+https://www.textise.net/showtext.aspx?strURL=https://www.bbc.com
+https://textuploader.net/
+https://motherfuckingwebsite.com/
+https://bettermotherfuckingwebsite.com/
+https://theoldnet.com/
+https://www.html.am/templates/
