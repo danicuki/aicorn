@@ -1,9 +1,9 @@
 # aicorn vs. raw HTML — input-token economy
 
-**Run date:** 2026-05-01
-**Worker:** `https://aicorn.mikhailnovikov.workers.dev`
-**Model price assumed:** Claude Sonnet 4.6 — `$3.00 / M` input tokens
-**Method:** for each URL, fetch via three pipes (aicorn / raw HTML / Turndown(HTML)), count `chars / 4` tokens on each payload, multiply by the input rate. Same denominator across pipes — ratios are exact, absolute values are within ~10% of a real BPE tokenizer.
+- **Run date:** 2026-05-01
+- **Worker:** `https://aicorn.mikhailnovikov.workers.dev`
+- **Model price assumed:** Claude Sonnet 4.6 — `$3.00 / M` input tokens
+- **Method:** for each URL, fetch via three pipes (aicorn / raw HTML / Turndown(HTML)), count `chars / 4` tokens on each payload, multiply by the input rate. Same denominator across pipes — ratios are exact, absolute values are within ~10% of a real BPE tokenizer.
 
 > Raw data: `bench/results/2026-05-01T16-55-21-054Z.json`. Source: [`bench/`](../bench/).
 
