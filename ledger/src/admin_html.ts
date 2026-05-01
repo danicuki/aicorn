@@ -51,12 +51,18 @@ export const ADMIN_HTML = `<!DOCTYPE html>
   .pill.credit, .pill.signup { color: var(--good); border-color: var(--good); }
   .pill.admin_adjust { color: var(--accent); border-color: var(--accent); }
 
-  #detail { display: none; margin-top: 2rem; padding: 1.5rem; border: 1px solid var(--line); background: var(--hl); }
+  .layout { display: grid; grid-template-columns: minmax(340px, 4fr) minmax(0, 6fr); gap: 2rem; align-items: start; margin-top: 1rem; }
+  @media (max-width: 900px) { .layout { grid-template-columns: 1fr; } }
+  .left-col h2:first-child, .right-col h2:first-child { margin-top: 0; }
+  .right-col { position: sticky; top: 1rem; }
+  @media (max-width: 900px) { .right-col { position: static; } }
+  #detail-empty { padding: 2rem; border: 1px dashed var(--line); color: var(--muted); text-align: center; font-size: 0.9rem; }
+  #detail-empty.hidden { display: none; }
+  #detail { display: none; padding: 1.5rem; border: 1px solid var(--line); background: var(--hl); }
   #detail.open { display: block; }
   #detail .header { display: flex; justify-content: space-between; align-items: baseline; }
-  #detail h2:first-child { margin-top: 0; }
-  .col2 { display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; }
-  @media (max-width: 700px) { .col2 { grid-template-columns: 1fr; } }
+  #detail h2 { margin-top: 1.5rem; }
+  #detail h2:first-of-type { margin-top: 1rem; }
   .balance-big { font-size: 2.5rem; font-variant-numeric: tabular-nums; }
   .toast { position: fixed; bottom: 1rem; right: 1rem; padding: 0.7rem 1rem; background: var(--fg); color: #fff; font-size: 0.85rem; opacity: 0; transition: opacity 0.2s; pointer-events: none; }
   .toast.show { opacity: 1; }
@@ -67,27 +73,30 @@ export const ADMIN_HTML = `<!DOCTYPE html>
   <h1>Agentify Ledger Admin</h1>
   <div class="sub">D1 · users / activity / contributions / stats</div>
 
-  <h2>Create user</h2>
-  <form id="create-form">
-    <input id="create-id" placeholder="user_id (optional, auto if blank)">
-    <input id="create-name" placeholder="display name (optional)">
-    <button type="submit">Create + 100-credit grant</button>
-  </form>
+  <div class="layout">
+    <div class="left-col">
+      <h2>Create user</h2>
+      <form id="create-form">
+        <input id="create-id" placeholder="user_id (optional, auto if blank)">
+        <input id="create-name" placeholder="display name (optional)">
+        <button type="submit">Create + 100-credit grant</button>
+      </form>
 
-  <h2>Users</h2>
-  <table>
-    <thead><tr><th>ID</th><th>Name</th><th class="num">Balance</th><th>Created</th></tr></thead>
-    <tbody id="users-tbody"><tr><td colspan="4" style="color:var(--muted)">loading…</td></tr></tbody>
-  </table>
-
-  <div id="detail">
-    <div class="header">
-      <h2 id="detail-title">User</h2>
-      <button id="close-detail" type="button">close ✕</button>
+      <h2>Users</h2>
+      <table>
+        <thead><tr><th>ID</th><th>Name</th><th class="num">Balance</th><th>Created</th></tr></thead>
+        <tbody id="users-tbody"><tr><td colspan="4" style="color:var(--muted)">loading…</td></tr></tbody>
+      </table>
     </div>
 
-    <div class="col2">
-      <div>
+    <div class="right-col">
+      <div id="detail-empty">Select a user from the list to view their detail</div>
+      <div id="detail">
+        <div class="header">
+          <h2 id="detail-title">User</h2>
+          <button id="close-detail" type="button">close ✕</button>
+        </div>
+
         <div class="balance-big" id="detail-balance">—</div>
         <div class="sub" id="detail-id"></div>
 
@@ -117,9 +126,7 @@ export const ADMIN_HTML = `<!DOCTYPE html>
           <thead><tr><th>URL</th><th class="num">Earned</th><th class="num">Hits</th></tr></thead>
           <tbody id="contrib-tbody"><tr><td colspan="3" style="color:var(--muted)">none</td></tr></tbody>
         </table>
-      </div>
 
-      <div>
         <h2>Activity (latest 200)</h2>
         <table>
           <thead><tr><th>When</th><th>Type</th><th class="num">Amount</th><th class="num">Balance</th><th>Detail</th></tr></thead>
@@ -181,6 +188,7 @@ async function openUser(id) {
   currentUserId = id;
   const { user, activity, contributions } = await api("GET", "/admin/users/" + encodeURIComponent(id));
   $("detail").classList.add("open");
+  $("detail-empty").classList.add("hidden");
   $("detail-title").textContent = user.name || user.id;
   $("detail-balance").textContent = user.balance;
   $("detail-id").textContent = user.id;
@@ -205,11 +213,14 @@ async function openUser(id) {
     </tr>
   \`).join("") : '<tr><td colspan="3" style="color:var(--muted)">none</td></tr>';
 
-  document.getElementById("detail").scrollIntoView({ behavior: "smooth", block: "start" });
+  if (window.matchMedia("(max-width: 900px)").matches) {
+    document.getElementById("detail").scrollIntoView({ behavior: "smooth", block: "start" });
+  }
 }
 
 $("close-detail").addEventListener("click", () => {
   $("detail").classList.remove("open");
+  $("detail-empty").classList.remove("hidden");
   currentUserId = null;
 });
 

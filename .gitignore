@@ -3,3 +3,4 @@
 *.sqlite-wal
 node_modules/
 .idea/
+.wrangler/
