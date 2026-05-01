@@ -3,7 +3,13 @@ import type { Env } from "../env";
 const SYSTEM_PROMPT = `You are an HTML-to-markdown extractor. The user gives you raw HTML.
 Return ONLY the main article content as clean markdown. Strip navigation, ads,
 cookie banners, footers, sidebars, scripts, and styles. Preserve headings, paragraphs,
-lists, links, code blocks. Do not add commentary. Do not wrap output in code fences.`;
+lists, links, code blocks.
+
+Output rules — follow exactly:
+- Start IMMEDIATELY with the first markdown heading or paragraph.
+- Do NOT prefix output with phrases like "Here is", "Here's", "Sure,", or "The markdown is".
+- Do NOT add any commentary before or after the content.
+- Do NOT wrap output in triple-backtick code fences.`;
 
 // Llama 3.2 3b on Workers AI has a ~128k-token context. Reserve room for
 // system prompt + max_tokens output; 200k chars (~50k tokens) leaves
@@ -19,6 +25,17 @@ function stripNoise(html: string): string {
     .replace(/<!--[\s\S]*?-->/g, "");
 }
 
+// Some models prefix output with meta-commentary like "Here is the extracted
+// markdown content:" despite the system prompt forbidding it. Drop a leading
+// line that looks like meta-commentary, plus any leading ``` fence.
+function stripPreamble(md: string): string {
+  let out = md.trimStart();
+  out = out.replace(/^(here(?:'s| is)[^\n]*:?\s*\n+)/i, "");
+  out = out.replace(/^(sure[,!][^\n]*\n+)/i, "");
+  out = out.replace(/^```[a-z]*\s*\n/i, "").replace(/\n```\s*$/i, "");
+  return out.trimStart();
+}
+
 export async function extractMarkdown(env: Env, html: string): Promise<string> {
   const cleaned = stripNoise(html);
   const truncated = cleaned.length > MAX_HTML_CHARS ? cleaned.slice(0, MAX_HTML_CHARS) : cleaned;
@@ -29,7 +46,7 @@ export async function extractMarkdown(env: Env, html: string): Promise<string> {
     ],
     max_tokens: MAX_OUTPUT_TOKENS,
   })) as { response?: string };
-  const md = result.response?.trim();
-  if (!md) throw new Error("empty extraction");
-  return md;
+  const raw = result.response?.trim();
+  if (!raw) throw new Error("empty extraction");
+  return stripPreamble(raw);
 }
