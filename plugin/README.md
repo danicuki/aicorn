@@ -9,15 +9,21 @@ Route Claude Code's `WebFetch` through the [agentify](https://github.com/telepen
 
 ## Install
 
-Add this directory to a Claude Code plugin marketplace:
+The plugin lives at [github.com/telepenin/aicorn](https://github.com/telepenin/aicorn) under the `plugin/` subdirectory.
+
+Add a marketplace entry pointing at the GitHub repo + subPath:
 
 ```jsonc
 // .claude/marketplace.json (project-local) or ~/.claude/marketplace.json (user)
 {
-  "name": "local",
-  "owner": "you",
+  "name": "telepenin",
+  "owner": "telepenin",
   "plugins": [
-    { "source": "/absolute/path/to/this/plugin/directory" }
+    {
+      "name": "aicorn",
+      "source": "https://github.com/telepenin/aicorn",
+      "subPath": "plugin"
+    }
   ]
 }
 ```
@@ -25,10 +31,24 @@ Add this directory to a Claude Code plugin marketplace:
 Then in Claude Code:
 
 ```
-/plugin install aicorn@local
+/plugin install aicorn@telepenin
 ```
 
-Alternatively, push the plugin directory to GitHub and add the repo URL as a marketplace source.
+Local development install (clone the repo first):
+
+```jsonc
+{
+  "name": "local",
+  "owner": "you",
+  "plugins": [
+    { "name": "aicorn", "source": "/absolute/path/to/aicorn/plugin" }
+  ]
+}
+```
+
+```
+/plugin install aicorn@local
+```
 
 ## Configure
 
