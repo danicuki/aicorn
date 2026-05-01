@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 360 110" width="360" height="110" role="img" aria-label="Aicorn">
+  <style>
+    .wordmark {
+      font-family: 'Fraunces', Georgia, 'Times New Roman', serif;
+      font-weight: 800;
+      font-size: 92px;
+      letter-spacing: -3px;
+      fill: #FBF6EC;
+    }
+  </style>
+  <text x="0" y="86" class="wordmark">Aicorn</text>
+</svg>
