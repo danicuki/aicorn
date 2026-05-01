@@ -1,5 +1,6 @@
 import { Env, json } from "./env";
 import { ledgerCharge, ledgerCredit, getLedger } from "./ledger";
+import { ledgerAccess } from "./access";
 import { getStats, incrStat } from "./stats";
 import { adminHandler } from "./admin";
 
@@ -15,6 +16,7 @@ export default {
 
     if (pathname === "/ledger/charge" && method === "POST") return ledgerCharge(request, env);
     if (pathname === "/ledger/credit" && method === "POST") return ledgerCredit(request, env);
+    if (pathname === "/ledger/access" && method === "POST") return ledgerAccess(request, env);
     const ledgerMatch = pathname.match(/^\/ledger\/([^/]+)$/);
     if (ledgerMatch && method === "GET") {
       return getLedger(decodeURIComponent(ledgerMatch[1]), env);

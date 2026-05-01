@@ -55,6 +55,23 @@ export const ADMIN_HTML = `<!DOCTYPE html>
   @media (max-width: 800px) { .col2 { grid-template-columns: 1fr; } }
   .balance-big { font-size: 2.5rem; font-variant-numeric: tabular-nums; }
 
+  .stats-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 0.5rem; margin: 0.5rem 0 1rem; }
+  @media (max-width: 700px) { .stats-grid { grid-template-columns: repeat(2, 1fr); } }
+  .stat-tile { padding: 0.7rem 0.9rem; border: 1px solid var(--line); background: #fff; }
+  .stat-label { font-size: 0.7rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; }
+  .stat-value { font-size: 1.6rem; font-variant-numeric: tabular-nums; margin-top: 0.2rem; min-height: 2rem; }
+  .stat-value.editable { cursor: pointer; }
+  .stat-value.editable:hover { color: var(--accent); }
+  .stat-value input { font-family: inherit; font-size: 1.4rem; width: 100%; border: 1px solid var(--accent); padding: 0.1rem 0.3rem; outline: none; background: #fff; color: var(--fg); }
+  .top-contrib-table { font-size: 0.85rem; max-width: 480px; }
+
+  #access-result { margin: 0.25rem 0 1rem; padding: 0.7rem 1rem; border-left: 3px solid var(--accent); background: #fff; font-size: 0.9rem; line-height: 1.6; }
+  #access-result .row { display: flex; gap: 0.6rem; }
+  #access-result .label { color: var(--muted); min-width: 5.5rem; }
+  #access-result.error { border-color: var(--bad); color: var(--bad); }
+  #access-result .pos { color: var(--good); }
+  #access-result .neg { color: var(--bad); }
+
   .toast { position: fixed; bottom: 1rem; right: 1rem; padding: 0.7rem 1rem; background: var(--fg); color: #fff; font-size: 0.85rem; opacity: 0; transition: opacity 0.2s; pointer-events: none; }
   .toast.show { opacity: 1; }
   .toast.bad { background: var(--bad); }
@@ -62,9 +79,19 @@ export const ADMIN_HTML = `<!DOCTYPE html>
 </head>
 <body>
   <h1>Agentify Ledger Admin</h1>
-  <div class="sub">D1 · users / activity / contributions / stats</div>
+  <div class="sub">D1 · users / activity / contributions / stats · <a href="/admin/access" style="color:var(--accent)">access tester →</a></div>
 
   <div id="list-view">
+    <h2>Stats</h2>
+    <div class="stats-grid">
+      <div class="stat-tile"><div class="stat-label">tokens saved</div><div class="stat-value editable" data-key="tokens_saved">—</div></div>
+      <div class="stat-tile"><div class="stat-label">reads</div><div class="stat-value editable" data-key="reads">—</div></div>
+      <div class="stat-tile"><div class="stat-label">hits</div><div class="stat-value editable" data-key="hits">—</div></div>
+      <div class="stat-tile"><div class="stat-label">misses</div><div class="stat-value editable" data-key="misses">—</div></div>
+      <div class="stat-tile"><div class="stat-label">hit rate</div><div class="stat-value" data-key="hit_rate">—</div></div>
+    </div>
+    <div id="top-contributors-wrap"></div>
+
     <h2>Create user</h2>
     <form id="create-form">
       <input id="create-id" placeholder="user_id (optional, auto if blank)">
@@ -166,6 +193,66 @@ function showDetailContainer() {
   $("detail-view").classList.remove("hidden");
   window.scrollTo(0, 0);
 }
+
+async function loadStats() {
+  try {
+    const s = await api("GET", "/stats");
+    document.querySelector('[data-key="tokens_saved"]').textContent = s.tokens_saved;
+    document.querySelector('[data-key="reads"]').textContent = s.reads;
+    document.querySelector('[data-key="hits"]').textContent = s.hits;
+    document.querySelector('[data-key="misses"]').textContent = s.misses;
+    document.querySelector('[data-key="hit_rate"]').textContent = (s.hit_rate * 100).toFixed(1) + "%";
+
+    const wrap = $("top-contributors-wrap");
+    if (s.top_contributors && s.top_contributors.length) {
+      wrap.innerHTML = '<h2>Top contributors</h2><table class="top-contrib-table"><thead><tr><th>User</th><th class="num">Earned</th></tr></thead><tbody>'
+        + s.top_contributors.map(c =>
+            '<tr><td>' + escapeHtml(c.user_id) + '</td><td class="num">' + c.total_earned + '</td></tr>'
+          ).join('')
+        + '</tbody></table>';
+    } else {
+      wrap.innerHTML = '';
+    }
+  } catch {}
+}
+
+document.querySelectorAll('.stat-value.editable').forEach((el) => {
+  el.addEventListener('click', () => {
+    if (el.querySelector('input')) return;
+    const original = el.textContent;
+    const key = el.getAttribute('data-key');
+    const input = document.createElement('input');
+    input.type = 'number';
+    input.min = '0';
+    input.value = original;
+    el.textContent = '';
+    el.appendChild(input);
+    input.focus();
+    input.select();
+
+    let done = false;
+    const restore = () => { if (!done) { done = true; el.textContent = original; } };
+    const commit = async () => {
+      if (done) return;
+      done = true;
+      const val = Number(input.value);
+      if (!Number.isFinite(val) || val < 0) { el.textContent = original; return; }
+      try {
+        await api('PATCH', '/admin/stats', { key, value: val });
+        toast(key + ' = ' + val);
+        await loadStats();
+      } catch (err) {
+        toast(err.message, true);
+        el.textContent = original;
+      }
+    };
+    input.addEventListener('blur', commit);
+    input.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') input.blur();
+      if (e.key === 'Escape') restore();
+    });
+  });
+});
 
 async function loadUsers() {
   const { users } = await api("GET", "/admin/users");
@@ -275,6 +362,7 @@ $("edit-form").addEventListener("submit", async (e) => {
     toast("Saved");
     await openUser(currentUserId);
     await loadUsers();
+    await loadStats();
   } catch (err) { toast(err.message, true); }
 });
 
@@ -290,6 +378,7 @@ $("charge-form").addEventListener("submit", async (e) => {
     toast("Charged. New balance: " + r.new_balance);
     await openUser(currentUserId);
     await loadUsers();
+    await loadStats();
   } catch (err) { toast(err.message, true); }
 });
 
@@ -305,10 +394,12 @@ $("credit-form").addEventListener("submit", async (e) => {
     toast("Credited. New balance: " + r.new_balance);
     await openUser(currentUserId);
     await loadUsers();
+    await loadStats();
   } catch (err) { toast(err.message, true); }
 });
 
-// Initial routing: load user list, and if URL has ?user=X open that view.
+// Initial routing: load stats + user list, and if URL has ?user=X open that view.
+loadStats();
 loadUsers();
 const initialUser = new URLSearchParams(location.search).get("user");
 if (initialUser) {

@@ -1,6 +1,7 @@
 import { Env, json, html, readJson } from "./env";
 import { chargeUser, creditUser, SIGNUP_GRANT } from "./ledger";
 import { ADMIN_HTML } from "./admin_html";
+import { ACCESS_TESTER_HTML } from "./access_html";
 
 interface UserRow {
   id: string;
@@ -15,9 +16,12 @@ export async function adminHandler(request: Request, env: Env): Promise<Response
   const method = request.method;
 
   if (pathname === "/admin" && method === "GET") return html(ADMIN_HTML);
+  if (pathname === "/admin/access" && method === "GET") return html(ACCESS_TESTER_HTML);
 
   if (pathname === "/admin/users" && method === "GET") return listUsers(env);
   if (pathname === "/admin/users" && method === "POST") return createUser(request, env);
+
+  if (pathname === "/admin/stats" && method === "PATCH") return patchStats(request, env);
 
   const userMatch = pathname.match(/^\/admin\/users\/([^/]+)(\/.*)?$/);
   if (userMatch) {
@@ -142,6 +146,22 @@ async function adminCharge(userId: string, request: Request, env: Env): Promise<
   const result = await chargeUser(env, userId, body.amount, body.reason ?? "admin_charge");
   if (!result.ok) return json({ error: result.error, balance: result.balance }, result.status);
   return json({ ok: true, new_balance: result.new_balance });
+}
+
+const STAT_KEYS = ["tokens_saved", "reads", "hits", "misses"] as const;
+
+async function patchStats(request: Request, env: Env): Promise<Response> {
+  const body = await readJson<{ key: string; value: number }>(request);
+  if (!body?.key || typeof body.value !== "number" || body.value < 0 || !Number.isFinite(body.value)) {
+    return json({ error: "invalid_request" }, 400);
+  }
+  if (!(STAT_KEYS as readonly string[]).includes(body.key)) {
+    return json({ error: "invalid_key" }, 400);
+  }
+  await env.DB.prepare("UPDATE stats SET value = ? WHERE key = ?")
+    .bind(Math.floor(body.value), body.key)
+    .run();
+  return json({ ok: true });
 }
 
 async function adminCredit(userId: string, request: Request, env: Env): Promise<Response> {
