@@ -5,15 +5,28 @@ Return ONLY the main article content as clean markdown. Strip navigation, ads,
 cookie banners, footers, sidebars, scripts, and styles. Preserve headings, paragraphs,
 lists, links, code blocks. Do not add commentary. Do not wrap output in code fences.`;
 
-const MAX_HTML_CHARS = 60_000; // keep prompt under model context
+// Llama 3.1 8b on Workers AI has a ~7968-token context. Reserve room for
+// system prompt + max_tokens output; ~12k chars in keeps us well under.
+const MAX_HTML_CHARS = 12_000;
+const MAX_OUTPUT_TOKENS = 2048;
+
+function stripNoise(html: string): string {
+  return html
+    .replace(/<script[\s\S]*?<\/script>/gi, "")
+    .replace(/<style[\s\S]*?<\/style>/gi, "")
+    .replace(/<noscript[\s\S]*?<\/noscript>/gi, "")
+    .replace(/<!--[\s\S]*?-->/g, "");
+}
 
 export async function extractMarkdown(env: Env, html: string): Promise<string> {
-  const truncated = html.length > MAX_HTML_CHARS ? html.slice(0, MAX_HTML_CHARS) : html;
+  const cleaned = stripNoise(html);
+  const truncated = cleaned.length > MAX_HTML_CHARS ? cleaned.slice(0, MAX_HTML_CHARS) : cleaned;
   const result = (await env.AI.run("@cf/meta/llama-3.1-8b-instruct", {
     messages: [
       { role: "system", content: SYSTEM_PROMPT },
       { role: "user", content: truncated },
     ],
+    max_tokens: MAX_OUTPUT_TOKENS,
   })) as { response?: string };
   const md = result.response?.trim();
   if (!md) throw new Error("empty extraction");
