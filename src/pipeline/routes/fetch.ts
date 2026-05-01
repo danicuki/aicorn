@@ -7,6 +7,7 @@ import { detectAgent } from "../lib/agent";
 import { estimateTokens } from "../lib/tokens";
 import { callCharge, callCredit } from "../lib/ledger-client";
 import { extractMarkdown } from "../extraction/extract";
+import { fallbackForDemoUrl } from "../extraction/fallback";
 
 const READ_COST = 10;
 const CONTRIBUTOR_REWARD = 9;
@@ -54,7 +55,15 @@ export function buildFetchRoute(rootApp: Hono<{ Bindings: Env }>) {
     if (!originRes.ok) return c.text(`origin ${originRes.status}`, 502);
     const html = await originRes.text();
 
-    const markdown = await extractMarkdown(c.env, html);
+    let markdown: string;
+    try {
+      markdown = await extractMarkdown(c.env, html);
+    } catch (err) {
+      const fb = fallbackForDemoUrl(url, c.env.DEMO_URL);
+      if (!fb) throw err;
+      console.error("extraction failed, using fallback for demo URL", err);
+      markdown = fb;
+    }
 
     const originalTokens = estimateTokens(html);
     const extractedTokens = estimateTokens(markdown);
