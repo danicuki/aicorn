@@ -5,14 +5,9 @@
       font-weight: 800;
       font-size: 92px;
       letter-spacing: -3px;
-      fill: #4A2F1B;
-    }
-    @media (prefers-color-scheme: dark) {
-      .wordmark { fill: #FBF6EC; }
+      fill: #FBF6EC;
     }
   </style>
-  <!-- Use dotless ı (U+0131) so we can place our own colored dot -->
   <text x="0" y="96" class="wordmark">Aıcorn</text>
-  <!-- Spark dot (gold reads on both light and dark backgrounds) -->
   <circle cx="89" cy="29" r="9" fill="#F5B538"/>
 </svg>

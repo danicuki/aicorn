@@ -1,0 +1,13 @@
+{
+  "name": "aicorn",
+  "version": "0.1.0",
+  "description": "Route Claude's WebFetch calls through the agentify shared cache. First fetch extracts to clean markdown via Workers AI; every subsequent agent reading the same URL gets a cache hit and pays a fraction of the tokens.",
+  "author": {
+    "name": "Nikolay Telepenin",
+    "email": "telepenin.nikolay@gmail.com"
+  },
+  "homepage": "https://github.com/telepenin/aicorn",
+  "repository": "https://github.com/telepenin/aicorn",
+  "license": "MIT",
+  "keywords": ["webfetch", "cache", "agentify", "scraping", "markdown", "workers-ai", "cloudflare"]
+}
