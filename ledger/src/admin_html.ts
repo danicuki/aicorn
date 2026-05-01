@@ -36,8 +36,7 @@ export const ADMIN_HTML = `<!DOCTYPE html>
   input[type=number] { min-width: 7rem; }
   button { cursor: pointer; border-color: var(--fg); }
   button:hover { background: var(--fg); color: #fff; }
-  button.danger { border-color: var(--bad); color: var(--bad); }
-  button.danger:hover { background: var(--bad); color: #fff; }
+  button.back { margin-bottom: 1rem; }
 
   table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
   th, td { text-align: left; padding: 0.5rem 0.6rem; border-bottom: 1px solid var(--line); }
@@ -51,19 +50,11 @@ export const ADMIN_HTML = `<!DOCTYPE html>
   .pill.credit, .pill.signup { color: var(--good); border-color: var(--good); }
   .pill.admin_adjust { color: var(--accent); border-color: var(--accent); }
 
-  .layout { display: grid; grid-template-columns: minmax(340px, 4fr) minmax(0, 6fr); gap: 2rem; align-items: start; margin-top: 1rem; }
-  @media (max-width: 900px) { .layout { grid-template-columns: 1fr; } }
-  .left-col h2:first-child, .right-col h2:first-child { margin-top: 0; }
-  .right-col { position: sticky; top: 1rem; }
-  @media (max-width: 900px) { .right-col { position: static; } }
-  #detail-empty { padding: 2rem; border: 1px dashed var(--line); color: var(--muted); text-align: center; font-size: 0.9rem; }
-  #detail-empty.hidden { display: none; }
-  #detail { display: none; padding: 1.5rem; border: 1px solid var(--line); background: var(--hl); }
-  #detail.open { display: block; }
-  #detail .header { display: flex; justify-content: space-between; align-items: baseline; }
-  #detail h2 { margin-top: 1.5rem; }
-  #detail h2:first-of-type { margin-top: 1rem; }
+  .hidden { display: none !important; }
+  .col2 { display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; align-items: start; }
+  @media (max-width: 800px) { .col2 { grid-template-columns: 1fr; } }
   .balance-big { font-size: 2.5rem; font-variant-numeric: tabular-nums; }
+
   .toast { position: fixed; bottom: 1rem; right: 1rem; padding: 0.7rem 1rem; background: var(--fg); color: #fff; font-size: 0.85rem; opacity: 0; transition: opacity 0.2s; pointer-events: none; }
   .toast.show { opacity: 1; }
   .toast.bad { background: var(--bad); }
@@ -73,33 +64,30 @@ export const ADMIN_HTML = `<!DOCTYPE html>
   <h1>Agentify Ledger Admin</h1>
   <div class="sub">D1 · users / activity / contributions / stats</div>
 
-  <div class="layout">
-    <div class="left-col">
-      <h2>Create user</h2>
-      <form id="create-form">
-        <input id="create-id" placeholder="user_id (optional, auto if blank)">
-        <input id="create-name" placeholder="display name (optional)">
-        <button type="submit">Create + 100-credit grant</button>
-      </form>
+  <div id="list-view">
+    <h2>Create user</h2>
+    <form id="create-form">
+      <input id="create-id" placeholder="user_id (optional, auto if blank)">
+      <input id="create-name" placeholder="display name (optional)">
+      <button type="submit">Create + 100-credit grant</button>
+    </form>
 
-      <h2>Users</h2>
-      <table>
-        <thead><tr><th>ID</th><th>Name</th><th class="num">Balance</th><th>Created</th></tr></thead>
-        <tbody id="users-tbody"><tr><td colspan="4" style="color:var(--muted)">loading…</td></tr></tbody>
-      </table>
-    </div>
+    <h2>Users</h2>
+    <table>
+      <thead><tr><th>ID</th><th>Name</th><th class="num">Balance</th><th>Created</th></tr></thead>
+      <tbody id="users-tbody"><tr><td colspan="4" style="color:var(--muted)">loading…</td></tr></tbody>
+    </table>
+  </div>
 
-    <div class="right-col">
-      <div id="detail-empty">Select a user from the list to view their detail</div>
-      <div id="detail">
-        <div class="header">
-          <h2 id="detail-title">User</h2>
-          <button id="close-detail" type="button">close ✕</button>
-        </div>
+  <div id="detail-view" class="hidden">
+    <button class="back" id="back-btn" type="button">← Back to users</button>
 
-        <div class="balance-big" id="detail-balance">—</div>
-        <div class="sub" id="detail-id"></div>
+    <h1 id="detail-title">User</h1>
+    <div class="balance-big" id="detail-balance">—</div>
+    <div class="sub" id="detail-id"></div>
 
+    <div class="col2">
+      <div>
         <h2>Edit</h2>
         <form id="edit-form">
           <input id="edit-name" placeholder="name">
@@ -126,7 +114,9 @@ export const ADMIN_HTML = `<!DOCTYPE html>
           <thead><tr><th>URL</th><th class="num">Earned</th><th class="num">Hits</th></tr></thead>
           <tbody id="contrib-tbody"><tr><td colspan="3" style="color:var(--muted)">none</td></tr></tbody>
         </table>
+      </div>
 
+      <div>
         <h2>Activity (latest 200)</h2>
         <table>
           <thead><tr><th>When</th><th>Type</th><th class="num">Amount</th><th class="num">Balance</th><th>Detail</th></tr></thead>
@@ -164,6 +154,19 @@ async function api(method, path, body) {
   return data;
 }
 
+function showList() {
+  $("list-view").classList.remove("hidden");
+  $("detail-view").classList.add("hidden");
+  currentUserId = null;
+  window.scrollTo(0, 0);
+}
+
+function showDetailContainer() {
+  $("list-view").classList.add("hidden");
+  $("detail-view").classList.remove("hidden");
+  window.scrollTo(0, 0);
+}
+
 async function loadUsers() {
   const { users } = await api("GET", "/admin/users");
   const tbody = $("users-tbody");
@@ -180,49 +183,70 @@ async function loadUsers() {
     </tr>
   \`).join("");
   for (const tr of tbody.querySelectorAll("tr.clickable")) {
-    tr.addEventListener("click", () => openUser(tr.dataset.id));
+    tr.addEventListener("click", () => navigateToUser(tr.dataset.id));
   }
+}
+
+function navigateToUser(id) {
+  history.pushState({ view: "user", id }, "", "/admin?user=" + encodeURIComponent(id));
+  openUser(id);
 }
 
 async function openUser(id) {
   currentUserId = id;
-  const { user, activity, contributions } = await api("GET", "/admin/users/" + encodeURIComponent(id));
-  $("detail").classList.add("open");
-  $("detail-empty").classList.add("hidden");
-  $("detail-title").textContent = user.name || user.id;
-  $("detail-balance").textContent = user.balance;
-  $("detail-id").textContent = user.id;
-  $("edit-name").value = user.name || "";
-  $("edit-balance").value = user.balance;
+  showDetailContainer();
+  try {
+    const { user, activity, contributions } = await api("GET", "/admin/users/" + encodeURIComponent(id));
+    $("detail-title").textContent = user.name || user.id;
+    $("detail-balance").textContent = user.balance;
+    $("detail-id").textContent = user.id;
+    $("edit-name").value = user.name || "";
+    $("edit-balance").value = user.balance;
 
-  $("activity-tbody").innerHTML = activity.length ? activity.map(a => \`
-    <tr>
-      <td>\${fmtTime(a.created_at)}</td>
-      <td><span class="pill \${a.type}">\${a.type}</span></td>
-      <td class="num">\${a.type === "charge" ? "−" : "+"}\${Math.abs(a.amount)}</td>
-      <td class="num">\${a.balance_after}</td>
-      <td>\${escapeHtml(a.reason || a.url || "")}</td>
-    </tr>
-  \`).join("") : '<tr><td colspan="5" style="color:var(--muted)">none</td></tr>';
+    $("activity-tbody").innerHTML = activity.length ? activity.map(a => \`
+      <tr>
+        <td>\${fmtTime(a.created_at)}</td>
+        <td><span class="pill \${a.type}">\${a.type}</span></td>
+        <td class="num">\${a.type === "charge" ? "−" : "+"}\${Math.abs(a.amount)}</td>
+        <td class="num">\${a.balance_after}</td>
+        <td>\${escapeHtml(a.reason || a.url || "")}</td>
+      </tr>
+    \`).join("") : '<tr><td colspan="5" style="color:var(--muted)">none</td></tr>';
 
-  $("contrib-tbody").innerHTML = contributions.length ? contributions.map(c => \`
-    <tr>
-      <td>\${escapeHtml(c.url)}</td>
-      <td class="num">\${c.earned}</td>
-      <td class="num">\${c.hit_count}</td>
-    </tr>
-  \`).join("") : '<tr><td colspan="3" style="color:var(--muted)">none</td></tr>';
-
-  if (window.matchMedia("(max-width: 900px)").matches) {
-    document.getElementById("detail").scrollIntoView({ behavior: "smooth", block: "start" });
+    $("contrib-tbody").innerHTML = contributions.length ? contributions.map(c => \`
+      <tr>
+        <td>\${escapeHtml(c.url)}</td>
+        <td class="num">\${c.earned}</td>
+        <td class="num">\${c.hit_count}</td>
+      </tr>
+    \`).join("") : '<tr><td colspan="3" style="color:var(--muted)">none</td></tr>';
+  } catch (err) {
+    toast(err.message, true);
   }
 }
 
-$("close-detail").addEventListener("click", () => {
-  $("detail").classList.remove("open");
-  $("detail-empty").classList.remove("hidden");
-  currentUserId = null;
+function goBack() {
+  // If we came from the list, history.back() returns there cleanly.
+  // Otherwise (deep link / refresh), replace URL and show the list.
+  if (history.state?.view === "user" && history.length > 1) {
+    history.back();
+  } else {
+    history.replaceState({ view: "list" }, "", "/admin");
+    showList();
+  }
+}
+
+window.addEventListener("popstate", () => {
+  const params = new URLSearchParams(location.search);
+  const userId = params.get("user");
+  if (userId) {
+    openUser(userId);
+  } else {
+    showList();
+  }
 });
+
+$("back-btn").addEventListener("click", goBack);
 
 $("create-form").addEventListener("submit", async (e) => {
   e.preventDefault();
@@ -284,7 +308,14 @@ $("credit-form").addEventListener("submit", async (e) => {
   } catch (err) { toast(err.message, true); }
 });
 
+// Initial routing: load user list, and if URL has ?user=X open that view.
 loadUsers();
+const initialUser = new URLSearchParams(location.search).get("user");
+if (initialUser) {
+  openUser(initialUser);
+} else {
+  history.replaceState({ view: "list" }, "", location.pathname);
+}
 </script>
 </body>
 </html>`;
