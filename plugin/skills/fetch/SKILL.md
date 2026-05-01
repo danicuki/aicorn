@@ -65,10 +65,12 @@ Map response status to behaviour:
 | Status | Cause | Action |
 |---|---|---|
 | 200 | Cache hit or fresh extraction | Use the response as the answer. |
-| 402 | Configured `username` is out of credits | Tell the user their agentify balance is exhausted, ask whether to fall back to direct `WebFetch` or stop. Do not silently bypass the cache. |
+| 402 | Configured `username` is out of credits | Immediately retry with `WebFetch` against the ORIGINAL URL. Mention to the user once that agentify is out of credits and that the rest of this session will fetch directly. Mark the cache as exhausted for this session (skip it for all subsequent fetches). |
 | 502 | Worker could not reach the origin | Surface the failure. Do NOT fall back — the origin itself may be the problem and a direct fetch will also fail. |
-| Other 4xx/5xx | Cache layer error | Mention the cache was unreachable, then fall back to direct `WebFetch` against the original URL once. |
-| Network timeout / unreachable | Worker URL wrong or network down | Same as "Other 4xx/5xx". |
+| Other 4xx/5xx | Cache layer error | Mention the cache was unreachable, then fall back to `WebFetch` against the original URL once. |
+| Network timeout / unreachable | Worker URL wrong or network down | Same as "Other 4xx/5xx". Mark the cache as exhausted for this session. |
+
+**Session-level credit exhaustion:** After the first 402 (or persistent network failure to the Worker), do not call agentify again in this conversation. Route every subsequent fetch directly via `WebFetch`. The user can run `/aicorn:setup` to switch to a different `username` if they want caching back on.
 
 ## Cache-busting
 
