@@ -9,11 +9,11 @@
 **Tech Stack:** TypeScript, Cloudflare Workers, Hono router, Workers AI, Workers KV, Wrangler, Vitest + `@cloudflare/vitest-pool-workers` for unit tests, `curl` for integration smoke tests.
 
 **Hackathon discipline:**
-- TDD applies to **pure helpers** (URL hashing, agent detection, token estimation, KV value parsing). Integration of `/fetch` is verified with `curl` against `wrangler dev` — Worker integration tests have too much setup overhead for 2.5 hours of build.
-- **Hard cut at hour 3 (Task 9):** if Workers AI is misbehaving, swap in the hardcoded extraction for the demo URL and move on.
+- TDD applies to **pure helpers** (URL hashing, agent detection, token estimation, KV value parsing). Integration of `/fetch` is verified with `curl` against `wrangler dev` — Worker integration tests have too much setup overhead.
+- **Hard cut at Task 9:** if Workers AI is misbehaving, swap in the hardcoded extraction for the demo URL and move on.
 - **Pre-warm before stage** (Task 11): the live MISS path is dramatic but fragile. Make sure HIT works no matter what.
 
-**Lane contract** (locked at hour 0:30 by the team — do not change field names):
+**Lane contract** (locked by the team — do not change field names):
 
 ```
 POST /ledger/charge   { user_id, amount, reason }     → { ok, new_balance } | { error }
@@ -68,7 +68,7 @@ agentify/
 
 ## Task 1: Repo scaffold + Worker hello-world
 
-Daniel may already have done this in hour 0. If `wrangler.toml` exists in the repo root, skim it and skip to Task 2. Otherwise:
+Daniel may already have done this. If `wrangler.toml` exists in the repo root, skim it and skip to Task 2. Otherwise:
 
 **Files:**
 - Create: `package.json`
@@ -479,7 +479,7 @@ export async function bumpHitCount(kv: KVNamespace, key: string): Promise<CacheE
 }
 ```
 
-Note on `bumpHitCount`: KV is eventually consistent and there's no atomic increment. For demo scale this is fine — at most we miscount a hit or two. Don't add Durable Objects or compare-and-swap for this; YAGNI for a 5-hour build.
+Note on `bumpHitCount`: KV is eventually consistent and there's no atomic increment. For demo scale this is fine — at most we miscount a hit or two. Don't add Durable Objects or compare-and-swap for this; YAGNI.
 
 - [ ] **Step 5: Run test, verify PASS**
 
@@ -613,7 +613,7 @@ git commit -m "feat(ledger): stub routes + in-process client (Mikhail will repla
 
 ## Task 7: Workers AI extraction
 
-This is the riskiest piece. Time-box to 30 minutes; if it's not working at the end, jump to Task 9 (fallback) and come back later.
+This is the riskiest piece. If it's not working after a focused attempt, jump to Task 9 (fallback) and come back later.
 
 **Files:**
 - Create: `src/extraction/extract.ts`
@@ -913,7 +913,7 @@ git commit -m "feat(extraction): canned fallback for demo URL when AI fails"
 
 ## Task 10: End-to-end integration with Mikhail's real ledger
 
-By hour 3:00, Mikhail should have replaced `src/routes/ledger.ts` with the real implementation. Daniel drives this integration.
+By the time you reach this task, Mikhail should have replaced `src/routes/ledger.ts` with the real implementation. Daniel drives this integration.
 
 **Files:** None for Nikolay — this is a verification step, not a code change.
 
@@ -948,7 +948,7 @@ Expected: Alice's balance = 100 (signup) − (extraction_cost + 10) + 9 (credite
 
 - [ ] **Step 3: If field names don't match — Daniel's call**
 
-The contract was supposed to be locked at hour 0:30. If something drifted, fix the smaller side. Do not re-litigate.
+The contract was supposed to be locked. If something drifted, fix the smaller side. Do not re-litigate.
 
 - [ ] **Step 4: Commit any merge fixes**
 
@@ -1057,22 +1057,6 @@ git commit -m "feat(fetch): bump stats counters on hit/miss"
 ```
 
 ---
-
-## Time budget
-
-| Time | Task | Notes |
-|---|---|---|
-| 0:00–0:30 | Hour 0 alignment (with team) — not in this plan |
-| 0:30–0:45 | Task 1 | If Daniel did it, skim and skip |
-| 0:45–1:00 | Tasks 2 + 3 + 4 | Pure-function TDD, fast |
-| 1:00–1:20 | Task 5 | KV store helpers |
-| 1:20–1:35 | Task 6 | Ledger client + stub |
-| 1:35–2:05 | Task 7 | **Risk window — time-boxed** |
-| 2:05–2:35 | Task 8 | Main /fetch route |
-| 2:35–2:55 | Task 9 | Fallback (do this even if Task 7 worked) |
-| 3:00–3:45 | Task 10 | Integration with Mikhail |
-| 3:45–4:30 | Task 11 | Deploy + pre-warm |
-| 4:30+ | Task 12 | Only if Mikhail isn't covering stats |
 
 ## The one rule (carried forward from TEAM.md)
 
