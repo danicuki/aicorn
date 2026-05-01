@@ -1,0 +1,14 @@
+name = "agentify"
+main = "src/pipeline/index.ts"
+compatibility_date = "2025-04-01"
+
+[[kv_namespaces]]
+binding = "KV"
+id = "REPLACE_WITH_REAL_KV_ID"
+preview_id = "REPLACE_WITH_REAL_KV_ID"
+
+[ai]
+binding = "AI"
+
+[vars]
+DEMO_URL = "https://example.com/article-we-show-on-stage"
