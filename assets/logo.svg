@@ -7,6 +7,9 @@
       letter-spacing: -3px;
       fill: #4A2F1B;
     }
+    @media (prefers-color-scheme: dark) {
+      .wordmark { fill: #FBF6EC; }
+    }
   </style>
   <text x="0" y="86" class="wordmark">Aicorn</text>
 </svg>
