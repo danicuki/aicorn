@@ -1,4 +1,4 @@
-# Agentify — Project Scope
+# Agentify — Project Scope -
 
 A shared, credit-metered cache for agent-friendly web content, built on Cloudflare. Hackathon submission, sponsor: Cloudflare.
 
