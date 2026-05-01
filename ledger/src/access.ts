@@ -25,27 +25,11 @@ export async function ledgerAccess(request: Request, env: Env): Promise<Response
   const userName = body.user_name.trim();
   if (!userName) return json({ error: "invalid_request" }, 400);
 
-  let requester = await env.DB.prepare(
+  const existing = await env.DB.prepare(
     "SELECT id, name, balance FROM users WHERE name = ? LIMIT 1",
   )
     .bind(userName)
     .first<UserRow>();
-
-  let userCreated = false;
-  if (!requester) {
-    const newId = crypto.randomUUID();
-    const now = Date.now();
-    await env.DB.batch([
-      env.DB.prepare(
-        "INSERT INTO users (id, name, balance, created_at) VALUES (?, ?, ?, ?)",
-      ).bind(newId, userName, SIGNUP_GRANT, now),
-      env.DB.prepare(
-        "INSERT INTO activity (user_id, type, amount, reason, balance_after, created_at) VALUES (?, 'signup', ?, 'signup_grant', ?, ?)",
-      ).bind(newId, SIGNUP_GRANT, SIGNUP_GRANT, now),
-    ]);
-    requester = { id: newId, name: userName, balance: SIGNUP_GRANT };
-    userCreated = true;
-  }
 
   const contributor = await env.DB.prepare(
     "SELECT u.id AS id, u.name AS name, u.balance AS balance " +
@@ -54,6 +38,28 @@ export async function ledgerAccess(request: Request, env: Env): Promise<Response
   )
     .bind(url)
     .first<UserRow>();
+
+  // Caller may not yet exist; the canonical requester (existing or to-be-created)
+  // and the user-creation statements are computed up-front but only committed
+  // as part of a successful batch — so failed access doesn't leave orphan users.
+  const requester: UserRow = existing ?? {
+    id: crypto.randomUUID(),
+    name: userName,
+    balance: SIGNUP_GRANT,
+  };
+  const userCreated = !existing;
+  const now = Date.now();
+
+  const userCreationStmts = userCreated
+    ? [
+        env.DB.prepare(
+          "INSERT INTO users (id, name, balance, created_at) VALUES (?, ?, ?, ?)",
+        ).bind(requester.id, requester.name, SIGNUP_GRANT, now),
+        env.DB.prepare(
+          "INSERT INTO activity (user_id, type, amount, reason, balance_after, created_at) VALUES (?, 'signup', ?, 'signup_grant', ?, ?)",
+        ).bind(requester.id, SIGNUP_GRANT, SIGNUP_GRANT, now),
+      ]
+    : [];
 
   // Branch 1: register caller as the first fetcher / contributor.
   if (
@@ -69,9 +75,9 @@ export async function ledgerAccess(request: Request, env: Env): Promise<Response
     }
 
     const newBalance = requester.balance - body.extraction_cost;
-    const now = Date.now();
 
     await env.DB.batch([
+      ...userCreationStmts,
       env.DB.prepare("UPDATE users SET balance = ? WHERE id = ?").bind(
         newBalance,
         requester.id,
@@ -104,6 +110,7 @@ export async function ledgerAccess(request: Request, env: Env): Promise<Response
   }
 
   // Branch 2: cache-hit read flow. Charge requester 10, credit contributor 9.
+  // Returning here without committing means a never-existed user stays uncreated.
   if (!contributor) {
     return json(
       {
@@ -119,8 +126,7 @@ export async function ledgerAccess(request: Request, env: Env): Promise<Response
     return json({ error: "insufficient", balance: requester.balance }, 402);
   }
 
-  const now = Date.now();
-  const stmts: D1PreparedStatement[] = [];
+  const stmts: D1PreparedStatement[] = [...userCreationStmts];
 
   if (requester.id === contributor.id) {
     const balanceAfterCharge = requester.balance - READ_COST;
