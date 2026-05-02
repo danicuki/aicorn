@@ -26,8 +26,8 @@ jobs:
           - dir: bench
             run-tests: false  # bench has its own `bench` script, no `test`
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
         with:
           node-version: '22'
           cache: npm
@@ -53,8 +53,8 @@ jobs:
     env:
       CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
         with:
           node-version: '22'
           cache: npm
@@ -87,7 +87,7 @@ jobs:
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       # 5 assertions against the live deployed Workers. Catches deploy-time
       # regressions unit tests can't see (broken bindings, wrong KV/D1 IDs,
       # missing secrets). Defaults in scripts/smoke.sh hit the production
