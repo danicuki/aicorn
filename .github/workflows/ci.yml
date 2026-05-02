@@ -80,3 +80,18 @@ jobs:
         run: |
           npm ci
           npx wrangler deploy
+
+  smoke:
+    name: smoke (post-deploy)
+    needs: deploy
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      # 5 assertions against the live deployed Workers. Catches deploy-time
+      # regressions unit tests can't see (broken bindings, wrong KV/D1 IDs,
+      # missing secrets). Defaults in scripts/smoke.sh hit the production
+      # workers; override with WORKER_URL / LEDGER_URL env if the deploy
+      # target differs.
+      - name: smoke deployed Workers
+        run: ./scripts/smoke.sh
