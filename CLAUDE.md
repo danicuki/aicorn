@@ -30,7 +30,7 @@ Root holds **only orchestration**: `scripts/`, `docs/`, `report/`, `assets/`, `.
 | Subproject | dev | deploy | test | typecheck |
 |---|---|---|---|---|
 | **pipeline/** | `npm run dev` (port **8787**) | `npm run deploy` | `npm test` (vitest, KV-only) | `npm run typecheck` |
-| **ledger/** | `npm run dev` (port **8788**) | `npm run deploy` | — | `npm run typecheck` |
+| **ledger/** | `npm run dev` (port **8788**) | `npm run deploy` | `npm test` (vitest, D1) | `npm run typecheck` |
 | **bench/** | — | — | `npm run bench` | `npm run typecheck` |
 | **plugin/** | — | — | — | — |
 
