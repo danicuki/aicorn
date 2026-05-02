@@ -12,12 +12,14 @@ The repo name is `aicorn` (renamed from `agentify` — the old GitHub URL still 
 
 ```
 /                 root   →  aicorn pipeline Worker  (Cloudflare Worker, Hono, KV, Workers AI)
-ledger/           →  aicorn-ledger Worker         (Cloudflare Worker, D1, vanilla fetch handler)
-plugin/           →  aicorn Claude Code plugin    (skills only, no commands/agents/hooks)
-bench/            →  standalone TS benchmark      (tsx + turndown, no SDK, no API spend)
+                              source: src/pipeline/   tests: tests/pipeline/
+ledger/           →  aicorn-ledger Worker          (Cloudflare Worker, D1, vanilla fetch handler)
+                              source: src/ledger/     migrations: ledger/migrations/
+plugin/           →  aicorn Claude Code plugin     (skills only, no commands/agents/hooks)
+bench/            →  standalone TS benchmark       (tsx + turndown, no SDK, no API spend)
 ```
 
-Each has its own `package.json` + `tsconfig.json`. **Never run `npm install` from a subdir's parent** — it'll resolve the wrong tree. `cd` into the subproject first.
+Each Worker subproject owns its own `package.json` + `tsconfig.json` + `wrangler.{toml,jsonc}`, but **both Workers' source lives under the unified `src/` tree** (`src/pipeline/` + `src/ledger/`). The ledger's `wrangler.jsonc` references its source via `"main": "../src/ledger/index.ts"`, and its tsconfig includes `"../src/ledger/**/*"`. **Never run `npm install` from a subdir's parent** — it'll resolve the wrong tree. `cd` into the subproject first.
 
 Plus: `docs/superpowers/plans/` (executable plans, see "Plans" below), `report/` (curated benchmark reports), `assets/` (logo/branding), `scripts/` (`prewarm.sh`, `examples.sh`).
 

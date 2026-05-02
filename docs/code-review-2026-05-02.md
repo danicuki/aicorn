@@ -16,7 +16,7 @@ The ID prefix `P-` = pipeline (`src/pipeline/`); `L-` = ledger (`ledger/`); `X-`
 
 ### L-C1 / L-C2 — Race condition + lost updates on user balance
 
-**Where:** `ledger/src/ledger.ts:21-66` (`chargeUser`, `creditUser`); `ledger/src/access.ts:32-218` (the `/ledger/access` flow).
+**Where:** `src/ledger/ledger.ts:21-66` (`chargeUser`, `creditUser`); `src/ledger/access.ts:32-218` (the `/ledger/access` flow).
 
 **Problem:** All balance mutations are read-modify-write (`SELECT balance` → check ≥ amount → `UPDATE balance = newBalance`). D1 batches are sequential within one batch but provide no isolation against other concurrent Worker invocations. Two parallel charges on the same user both see `balance=10`, both pass the `≥ amount` check, both write `balance=0`. One charge becomes free; activity rows show two `balance_after=0` lines that don't add up.
 
@@ -35,7 +35,7 @@ If `meta.changes === 0`, return `insufficient` (re-read for the displayed balanc
 
 ### L-C3 — Admin surface fully unauthenticated
 
-**Where:** `ledger/src/index.ts:28` and every handler under `/admin/*`, plus `POST /stats/incr` (not even gated by `/admin/`).
+**Where:** `src/ledger/index.ts:28` and every handler under `/admin/*`, plus `POST /stats/incr` (not even gated by `/admin/`).
 
 **Problem:** The following endpoints freely mutate state with no token, header, IP allowlist, CORS check, or origin check:
 
@@ -106,9 +106,9 @@ Recommend option 2 short-term, option 3 once L-C3 lands.
 
 ### L-I4 — D1 `.batch([...])` is not a transaction
 
-**Where:** Every multi-statement batch — `ledger/src/ledger.ts:32-66`, `ledger/src/access.ts:83-218`, `ledger/src/admin.ts:64-199`.
+**Where:** Every multi-statement batch — `src/ledger/ledger.ts:32-66`, `src/ledger/access.ts:83-218`, `src/ledger/admin.ts:64-199`.
 
-**Problem:** `env.DB.batch([...])` pipelines statements but does not wrap them in `BEGIN/COMMIT`. A mid-batch failure leaves earlier statements committed. Most likely failure: `INSERT INTO contributions (…) VALUES (…)` at `ledger/src/access.ts:99-101` throws `UNIQUE constraint failed` if two near-simultaneous misses race for the same URL — and the preceding `UPDATE users SET balance` and `INSERT INTO activity` rows are already applied.
+**Problem:** `env.DB.batch([...])` pipelines statements but does not wrap them in `BEGIN/COMMIT`. A mid-batch failure leaves earlier statements committed. Most likely failure: `INSERT INTO contributions (…) VALUES (…)` at `src/ledger/access.ts:99-101` throws `UNIQUE constraint failed` if two near-simultaneous misses race for the same URL — and the preceding `UPDATE users SET balance` and `INSERT INTO activity` rows are already applied.
 
 **Fix:** Two paths:
 
@@ -124,7 +124,7 @@ Option 2 is cheaper and dovetails with L-C1.
 
 ### L-I3 — `tokens_saved` stat can go negative
 
-**Where:** `ledger/src/access.ts:209-216` — `savings = contributor.extraction_cost - READ_COST`.
+**Where:** `src/ledger/access.ts:209-216` — `savings = contributor.extraction_cost - READ_COST`.
 
 **Problem:** `extraction_cost` for tiny pages (e.g. a 50-token article) can be lower than `READ_COST` (10). Each such read decrements `tokens_saved`. The public stats page can show a negative number, which is meaningless and undermines the "we save you tokens" claim.
 
@@ -137,7 +137,7 @@ Option 2 is cheaper and dovetails with L-C1.
 
 ### L-I2 — Self-read inflates contributor leaderboard
 
-**Where:** `ledger/src/access.ts:135-163`, `199-202`.
+**Where:** `src/ledger/access.ts:135-163`, `199-202`.
 
 **Problem:** When `requester.id === contributor.id`, the user is charged 10 and credited 9 (net −1, intended). But the contributions row at L199-202 also adds `CONTRIBUTOR_REWARD = 9` to the contributor's `earned` and bumps `hit_count` — so re-reading your own URL inflates your leaderboard `earned` by 9 each time. Top-contributors stat becomes a self-farm.
 
@@ -150,7 +150,7 @@ Option 2 is cheaper and dovetails with L-C1.
 
 ### L-I1 — Brand-new user with `extraction_cost > SIGNUP_GRANT` cannot recover
 
-**Where:** `ledger/src/access.ts:46-77`.
+**Where:** `src/ledger/access.ts:46-77`.
 
 **Problem:** The auto-create + first-charge flow checks `requester.balance < extraction_cost` against the in-memory `SIGNUP_GRANT` (5000) before the user exists in the DB. If the cost is higher (likely for any large page since `extractionCost = extractedTokens`), the response is `{insufficient, balance: 5000}` AND the user is never created. The caller has no recovery path — they can't be topped up because they don't exist; they can't sign up because they get the same 402 every time.
 
@@ -163,7 +163,7 @@ Option 2 is cheaper and dovetails with L-C1.
 
 ### L-I7 — Activity log is not authoritative
 
-**Where:** `ledger/src/access.ts:135-163` self-read path; `ledger/src/access.ts:63-64` signup row.
+**Where:** `src/ledger/access.ts:135-163` self-read path; `src/ledger/access.ts:63-64` signup row.
 
 **Problem:**
 
@@ -237,14 +237,14 @@ return c.json({ error: access.error, balance: access.balance }, (access.status |
 
 | ID | Where | Issue | Fix |
 |---|---|---|---|
-| **L-C4** | `ledger/src/stats.ts:32-41` | `POST /stats/incr` accepts negative `by` and unvalidated types | `if (typeof body.by !== "number" \|\| body.by < 0) return 400` |
-| **P-C4** | `src/pipeline/lib/ledger-client.ts` ↔ `ledger/src/access.ts:106-113` | Success response doesn't include post-charge balance — caller can't display "you have N credits left" without a second round-trip | Add `balance: requester.balance` to the success body; consume in `AccessResult` |
-| **L-M1** | `ledger/src/ledger.ts:4-5`, `ledger/src/access.ts:4-5` | `READ_COST` and `CONTRIBUTOR_REWARD` defined in both files | Keep one source of truth in `ledger.ts`; import from `access.ts` |
-| **L-M2** | `ledger/src/admin.ts:204`, `ledger/src/stats.ts:3` | `STAT_KEYS` tuple defined twice | Single export from `stats.ts` |
-| **L-M3** | `ledger/src/ledger.ts:103-107` | `getLedger` does an unindexed `COUNT(*)` per call | Add `idx_activity_user_type` covering `(user_id, type)`, or maintain a counter on `users` |
-| **L-M4** | `ledger/src/admin.ts:81-99` | `getUserDetail` runs three sequential awaits | `Promise.all` or `env.DB.batch` for read-only fan-out |
+| **L-C4** | `src/ledger/stats.ts:32-41` | `POST /stats/incr` accepts negative `by` and unvalidated types | `if (typeof body.by !== "number" \|\| body.by < 0) return 400` |
+| **P-C4** | `src/pipeline/lib/ledger-client.ts` ↔ `src/ledger/access.ts:106-113` | Success response doesn't include post-charge balance — caller can't display "you have N credits left" without a second round-trip | Add `balance: requester.balance` to the success body; consume in `AccessResult` |
+| **L-M1** | `src/ledger/ledger.ts:4-5`, `src/ledger/access.ts:4-5` | `READ_COST` and `CONTRIBUTOR_REWARD` defined in both files | Keep one source of truth in `ledger.ts`; import from `access.ts` |
+| **L-M2** | `src/ledger/admin.ts:204`, `src/ledger/stats.ts:3` | `STAT_KEYS` tuple defined twice | Single export from `stats.ts` |
+| **L-M3** | `src/ledger/ledger.ts:103-107` | `getLedger` does an unindexed `COUNT(*)` per call | Add `idx_activity_user_type` covering `(user_id, type)`, or maintain a counter on `users` |
+| **L-M4** | `src/ledger/admin.ts:81-99` | `getUserDetail` runs three sequential awaits | `Promise.all` or `env.DB.batch` for read-only fan-out |
 | **P-I1** | `src/pipeline/cache/store.ts:11-17` | `bumpHitCount` is KV read-modify-write — race-prone | Add a one-line comment "informational only; D1 is source of truth", or drop the field and rely on the ledger |
-| **P-I2** | `src/pipeline/routes/fetch.ts:38`, `ledger/src/access.ts:209-216` | Three different definitions of "tokens saved" across pipeline + ledger | Pick one canonical formula; document on the stats page and on the `X-Tokens-Saved` header |
+| **P-I2** | `src/pipeline/routes/fetch.ts:38`, `src/ledger/access.ts:209-216` | Three different definitions of "tokens saved" across pipeline + ledger | Pick one canonical formula; document on the stats page and on the `X-Tokens-Saved` header |
 | **P-I3** | `src/pipeline/cache/types.ts:5` | `source_etag` is set but never read | Wire into a HEAD-precondition revalidation path, or drop the field |
 | **P-I6** | `src/pipeline/routes/fetch.ts:21,48,98` | `isAgent` is computed and reflected in `X-Agent` but never affects pricing/eligibility/caching | Add a "telemetry-only" comment or wire it into the ledger so agents can be priced differently |
 | **P-I8** | `src/pipeline/lib/ledger-client.ts:40` | `.catch(() => ({}))` swallows JSON parse errors silently | Log the raw text on parse failure |
@@ -257,7 +257,7 @@ return c.json({ error: access.error, balance: access.balance }, (access.status |
 
 ## What's solid (don't touch)
 
-- **Service Binding contract** — `AccessResult` shape in `src/pipeline/lib/ledger-client.ts` matches `ledger/src/access.ts`'s response. One near-miss documented as **X-1** below.
+- **Service Binding contract** — `AccessResult` shape in `src/pipeline/lib/ledger-client.ts` matches `src/ledger/access.ts`'s response. One near-miss documented as **X-1** below.
 - **`stripPreamble` regexes** — `src/pipeline/extraction/extract.ts:31-37` are linear; no catastrophic backtracking.
 - **No SQL injection** — every D1 query in `ledger/` is parameterised; `admin.ts:135` `updateUser` SET-list is built from string literals, not user input.
 - **Migrations are clean on a fresh D1** — `migrations/0002_extraction_cost.sql` isn't idempotent if applied out-of-band, but wrangler tracks them.
