@@ -1,18 +1,18 @@
 {
-  "name": "ledger",
-  "version": "1.0.0",
-  "main": "index.js",
+  "name": "aicorn-ledger",
+  "version": "0.1.0",
+  "private": true,
+  "description": "aicorn-ledger Worker — D1-backed credit ledger called by the pipeline via Service Binding.",
   "scripts": {
     "dev": "wrangler dev --port 8788",
     "deploy": "wrangler deploy",
+    "typecheck": "tsc --noEmit",
     "migrate:local": "wrangler d1 migrations apply agentify-ledger --local",
     "migrate:remote": "wrangler d1 migrations apply agentify-ledger --remote"
   },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
-  "description": "",
   "devDependencies": {
-    "@cloudflare/workers-types": "^4.20260501.1"
+    "@cloudflare/workers-types": "^4.20260501.1",
+    "typescript": "^6.0.3",
+    "wrangler": "^4.87.0"
   }
 }

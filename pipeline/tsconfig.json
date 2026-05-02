@@ -12,5 +12,5 @@
     "resolveJsonModule": true,
     "isolatedModules": true
   },
-  "include": ["src/pipeline/**/*", "tests/**/*"]
+  "include": ["src/**/*", "tests/**/*"]
 }

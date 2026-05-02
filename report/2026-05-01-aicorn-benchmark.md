@@ -198,7 +198,7 @@ See [bench failures](../bench/results/2026-05-01T16-55-21-054Z.md#failures) for 
 
 ## Recommended fixes (in priority order)
 
-1. **Catch any extraction throw → return 502 with the actual error.** Currently 7 URLs fail silently as 500. One-line edit in `src/pipeline/routes/fetch.ts`.
+1. **Catch any extraction throw → return 502 with the actual error.** Currently 7 URLs fail silently as 500. One-line edit in `pipeline/src/routes/fetch.ts`.
 2. **Browser Rendering integration** ([plan](../docs/superpowers/plans/2026-05-01-browser-rendering-integration.md)). Different IP/UA pool unblocks the W3.org tier; renders JS-heavy pages; removes the 128k-token model context cliff that's likely hurting the very large RFCs.
 3. **Short-content guard.** If the cleaned HTML is < ~300 chars, skip Workers AI and return the cleaned content directly (avoids the "empty extraction" throw on minimal pages like `motherfuckingwebsite.com`).
 

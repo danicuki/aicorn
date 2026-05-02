@@ -1,6 +1,6 @@
 # Cloudflare services in this project
 
-Everything runs on Cloudflare. There is no external database, no external queue, no third-party API in the hot path (with one planned exception, see [Browser Rendering](#considered-but-not-yet-integrated)). This doc enumerates what we actually use, sourced from `wrangler.toml`, `src/pipeline/env.ts`, and `ledger/package.json` — not from PROJECT.md, because the implementation diverged.
+Everything runs on Cloudflare. There is no external database, no external queue, no third-party API in the hot path (with one planned exception, see [Browser Rendering](#considered-but-not-yet-integrated)). This doc enumerates what we actually use, sourced from `wrangler.toml`, `pipeline/src/env.ts`, and `ledger/package.json` — not from PROJECT.md, because the implementation diverged.
 
 > **Architecture note vs. PROJECT.md:** PROJECT.md describes "one Worker, one deploy". The shipped architecture is **two Workers** (`aicorn` and `aicorn-ledger`) in the same repo, connected via a Service Binding. The doc below describes what's actually deployed.
 
@@ -12,7 +12,7 @@ Everything runs on Cloudflare. There is no external database, no external queue,
         ▼
 ┌─────────────────────────────┐         ┌─────────────────────────────┐
 │  aicorn  (pipeline Worker)  │         │  aicorn-ledger  (Worker)    │
-│  src/pipeline/*             │         │  ledger/*                   │
+│  pipeline/src/*             │         │  ledger/*                   │
 │                             │         │                             │
 │  GET /fetch?url=...         │         │  Charge / credit logic      │
 │                             │         │                             │
@@ -41,7 +41,7 @@ The execution environment for both `aicorn` (pipeline) and `aicorn-ledger`. Type
 The HTML-to-markdown extraction model on the pipeline's MISS path.
 
 - Binding: `AI` (`Ai` type from `@cloudflare/workers-types`)
-- Model: `@cf/meta/llama-3.2-3b-instruct` (`src/pipeline/extraction/extract.ts:42`)
+- Model: `@cf/meta/llama-3.2-3b-instruct` (`pipeline/src/extraction/extract.ts:42`)
 - Called as `env.AI.run(model, { messages, max_tokens })`
 - **Local dev requires `wrangler dev --remote`** — the AI binding has no local mock. This is also why `vitest.config.mts` excludes the `[ai]` binding from the test miniflare config (otherwise tests would attempt a remote proxy session and fail).
 
@@ -52,7 +52,7 @@ The cache for cleaned markdown and the lookup index.
 - Binding: `KV` (`KVNamespace` type)
 - Namespace: `aicorn-cache` (id `54505753…`, preview_id `e8c42648…` in `wrangler.toml`)
 - Keys we own (pipeline lane): `cache:<sha256(url)>` → JSON `CacheEntry`
-- Access pattern: `kv.get<T>(key, "json")` and `kv.put(key, JSON.stringify(...))` (`src/pipeline/cache/store.ts`)
+- Access pattern: `kv.get<T>(key, "json")` and `kv.put(key, JSON.stringify(...))` (`pipeline/src/cache/store.ts`)
 - **Eventual consistency** is the trade-off — there's no atomic increment. `bumpHitCount` does a read-then-write and may miscount under concurrent reads. For demo scale, fine.
 
 ### 4. D1 (used by the ledger Worker)
@@ -81,7 +81,7 @@ How the pipeline talks to the ledger without going over the public internet.
   service = "aicorn-ledger"
   ```
 - Used as `env.LEDGER.fetch(new Request(...))` — same shape as `fetch()`, but routed in-Cloudflare to the ledger Worker
-- Implementation: `src/pipeline/lib/ledger-client.ts` (`callAccess` helper)
+- Implementation: `pipeline/src/lib/ledger-client.ts` (`callAccess` helper)
 
 Service bindings give us in-region, encrypted, no-public-DNS calls between Workers — same effective performance as in-process calls, with the benefit of independent deploy and scaling.
 
@@ -89,7 +89,7 @@ Service bindings give us in-region, encrypted, no-public-DNS calls between Worke
 
 Plain-text config injected into `env`.
 
-- `DEMO_URL` — the URL pre-warmed before stage; used by the fallback path in `src/pipeline/extraction/fallback.ts`
+- `DEMO_URL` — the URL pre-warmed before stage; used by the fallback path in `pipeline/src/extraction/fallback.ts`
 - Set in `wrangler.toml [vars]`
 
 (Secrets — set via `wrangler secret put` — would land here too. The browser-rendering plan introduces `CF_API_TOKEN` and `CF_ACCOUNT_ID` as secrets, but those aren't shipped yet.)
@@ -114,10 +114,10 @@ Sourced from `wrangler.toml` (pipeline). Field names below match what's accessed
 
 | Binding   | Type          | Backend           | Used in                                  |
 |-----------|---------------|-------------------|------------------------------------------|
-| `KV`      | `KVNamespace` | Workers KV        | `src/pipeline/cache/store.ts`            |
-| `AI`      | `Ai`          | Workers AI        | `src/pipeline/extraction/extract.ts`     |
-| `LEDGER`  | `Fetcher`     | Service binding   | `src/pipeline/lib/ledger-client.ts`      |
-| `DEMO_URL`| `string`      | Vars (plain text) | `src/pipeline/extraction/fallback.ts`    |
+| `KV`      | `KVNamespace` | Workers KV        | `pipeline/src/cache/store.ts`            |
+| `AI`      | `Ai`          | Workers AI        | `pipeline/src/extraction/extract.ts`     |
+| `LEDGER`  | `Fetcher`     | Service binding   | `pipeline/src/lib/ledger-client.ts`      |
+| `DEMO_URL`| `string`      | Vars (plain text) | `pipeline/src/extraction/fallback.ts`    |
 
 The ledger Worker has its own bindings table (D1 plus whatever Mikhail wires) — not enumerated here.
 
@@ -254,7 +254,7 @@ Things we've already hit or that the plan calls out:
 
 - `wrangler.toml` — pipeline Worker config (bindings, vars, services)
 - `ledger/wrangler.toml` — ledger Worker config (D1 binding)
-- `src/pipeline/env.ts` — `Env` type, single source of truth for binding shapes
+- `pipeline/src/env.ts` — `Env` type, single source of truth for binding shapes
 - `vitest.config.mts` — Miniflare test config
 - `docs/superpowers/plans/2026-05-01-cache-extraction-pipeline.md` — pipeline implementation plan
 - `docs/superpowers/plans/2026-05-01-browser-rendering-integration.md` — planned Browser Rendering migration

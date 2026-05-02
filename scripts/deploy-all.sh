@@ -17,7 +17,7 @@ echo "→ Deploying aicorn-ledger..."
 echo
 
 echo "→ Deploying aicorn pipeline..."
-npx wrangler deploy
+( cd pipeline && npx wrangler deploy )
 echo
 
 echo "✓ Both Workers deployed."

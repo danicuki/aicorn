@@ -6,41 +6,43 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 **Aicorn** — shared, credit-metered cache for agent-friendly web content on Cloudflare. An agent fetches a URL through a Worker that returns clean markdown (extracted by Workers AI on first miss, served from KV on every subsequent hit). A separate ledger Worker meters charges and contributor credits.
 
-The repo name is `aicorn` (renamed from `agentify` — the old GitHub URL still redirects). The brand is "Aicorn"; some files still say "agentify". Don't change the package name to "aicorn" without checking — the npm name is deliberately still `agentify` for the root Worker because the Cloudflare Worker name is `aicorn`.
+The repo name is `aicorn` (renamed from `agentify` — the old GitHub URL still redirects). The brand is "Aicorn"; some files still say "agentify".
 
-## Monorepo layout — 4 independent subprojects
+## Monorepo layout — 4 independent subprojects, all siblings
 
 ```
-/                 root   →  aicorn pipeline Worker  (Cloudflare Worker, Hono, KV, Workers AI)
-                              source: src/pipeline/   tests: tests/pipeline/
+pipeline/         →  aicorn pipeline Worker        (Cloudflare Worker, Hono, KV, Workers AI)
+                       package.json · wrangler.toml · tsconfig.json · vitest.config.mts
+                       src/ · tests/
 ledger/           →  aicorn-ledger Worker          (Cloudflare Worker, D1, vanilla fetch handler)
-                              source: src/ledger/     migrations: ledger/migrations/
+                       package.json · wrangler.jsonc · tsconfig.json
+                       src/ · migrations/
 plugin/           →  aicorn Claude Code plugin     (skills only, no commands/agents/hooks)
 bench/            →  standalone TS benchmark       (tsx + turndown, no SDK, no API spend)
 ```
 
-Each Worker subproject owns its own `package.json` + `tsconfig.json` + `wrangler.{toml,jsonc}`, but **both Workers' source lives under the unified `src/` tree** (`src/pipeline/` + `src/ledger/`). The ledger's `wrangler.jsonc` references its source via `"main": "../src/ledger/index.ts"`, and its tsconfig includes `"../src/ledger/**/*"`. **Never run `npm install` from a subdir's parent** — it'll resolve the wrong tree. `cd` into the subproject first.
+Root holds **only orchestration**: `scripts/`, `docs/`, `report/`, `assets/`, `.claude-plugin/marketplace.json`, `CLAUDE.md`, `README.md`, plus a tiny `package.json` whose only scripts are `dev:all` / `deploy:all`. No Worker code, configs, deps, or `node_modules` at root.
 
-Plus: `docs/superpowers/plans/` (executable plans, see "Plans" below), `report/` (curated benchmark reports), `assets/` (logo/branding), `scripts/` (`prewarm.sh`, `examples.sh`).
+**Each subproject is fully independent.** Its own `package.json` + `node_modules` + `tsconfig.json` + (where applicable) `wrangler.{toml,jsonc}`. **Always `cd` into the subproject before running `npm install` / `npm run …`** — running from root resolves the wrong tree.
 
 ## Per-subproject commands
 
 | Subproject | dev | deploy | test | typecheck |
 |---|---|---|---|---|
-| **root (aicorn)** | `npm run dev` (port **8787**) | `npm run deploy` | `npm test` (vitest, KV-only) | `npm run typecheck` |
-| **ledger/** | `npm run dev` (port **8788**) | `npm run deploy` | — | — |
+| **pipeline/** | `npm run dev` (port **8787**) | `npm run deploy` | `npm test` (vitest, KV-only) | `npm run typecheck` |
+| **ledger/** | `npm run dev` (port **8788**) | `npm run deploy` | — | `npm run typecheck` |
 | **bench/** | — | — | `npm run bench` | `npm run typecheck` |
 | **plugin/** | — | — | — | — |
 
 `ledger/` D1 migrations: `npm run migrate:local` / `npm run migrate:remote`.
 
-**Both at once:** from repo root, `npm run dev:all` spawns ledger (:8788) + pipeline (:8787); `npm run deploy:all` deploys ledger first then pipeline. Both shell out to `scripts/dev-all.sh` / `scripts/deploy-all.sh`, which export `CLOUDFLARE_ACCOUNT_ID` from the root `wrangler.toml` so the ledger lands on the same account without duplicating the value in `ledger/wrangler.jsonc`.
+**Both Workers at once:** from repo root, `npm run dev:all` spawns ledger (:8788) + pipeline (:8787); `npm run deploy:all` deploys ledger first then pipeline. Both wrap `scripts/dev-all.sh` / `scripts/deploy-all.sh`, which `cd` into each subproject in turn.
 
 ## Architecture you can't infer from one file
 
 ### Two Workers, one Service Binding
 
-PROJECT.md and TEAM.md say "one Worker, one deploy". **Reality: two Workers**, connected by a Cloudflare Service Binding declared in `wrangler.toml`:
+PROJECT.md and TEAM.md say "one Worker, one deploy". **Reality: two Workers**, connected by a Cloudflare Service Binding declared in `pipeline/wrangler.toml`:
 
 ```toml
 [[services]]
@@ -48,7 +50,7 @@ binding = "LEDGER"
 service = "aicorn-ledger"
 ```
 
-The pipeline calls the ledger via `c.env.LEDGER.fetch("https://ledger/ledger/access", ...)` (host is ignored by the runtime; URL must be syntactically valid). See `src/pipeline/lib/ledger-client.ts`. **Local dev requires both Workers running** — `wrangler dev` on port 8787 (root) AND port 8788 (ledger), or use `wrangler dev --remote` against deployed instances.
+The pipeline calls the ledger via `c.env.LEDGER.fetch("https://ledger/ledger/access", ...)` (host is ignored by the runtime; URL must be syntactically valid). See `pipeline/src/lib/ledger-client.ts`. **Local dev requires both Workers running** — `wrangler dev` on port 8787 (pipeline) AND port 8788 (ledger), or use `wrangler dev --remote` against deployed instances.
 
 ### Ledger access endpoint replaces the old charge/credit pair
 
@@ -60,19 +62,19 @@ The pipeline used to call `/ledger/charge` + `/ledger/credit` separately. Mikhai
 
 ### vitest config is detached from wrangler.toml on purpose
 
-`vitest.config.mts` uses inline miniflare config — it does NOT load `wrangler.toml`. Reason: the production `[ai]` binding triggers a remote-proxy session that requires `CLOUDFLARE_ACCOUNT_ID`, which fails in non-interactive runs. Tests only declare the KV binding inline. **If you add a binding the tests need, add it to `vitest.config.mts` separately, do not point the pool at `wrangler.toml`.**
+`pipeline/vitest.config.mts` uses inline miniflare config — it does NOT load `pipeline/wrangler.toml`. Reason: the production `[ai]` binding triggers a remote-proxy session that requires `CLOUDFLARE_ACCOUNT_ID`, which fails in non-interactive runs. Tests only declare the KV binding inline. **If you add a binding the tests need, add it to `vitest.config.mts` separately, do not point the pool at `wrangler.toml`.**
 
 ### Token estimation is `chars / 4` everywhere
 
-`src/pipeline/lib/tokens.ts` and `bench/src/fetch.ts` both use the same heuristic. The X-Tokens-Saved header, the bench cost numbers, the ledger extraction cost — all derive from this. **Same denominator across pipes ⇒ ratios are honest, absolute numbers are within ~10% of a real BPE tokenizer.** Don't replace this without changing all three.
+`pipeline/src/lib/tokens.ts` and `bench/src/fetch.ts` both use the same heuristic. The X-Tokens-Saved header, the bench cost numbers, the ledger extraction cost — all derive from this. **Same denominator across pipes ⇒ ratios are honest, absolute numbers are within ~10% of a real BPE tokenizer.** Don't replace this without changing all three.
 
 ### Extraction model + context budget
 
-`src/pipeline/extraction/extract.ts` uses `@cf/meta/llama-3.2-3b-instruct` (128K context). Input HTML is capped at `MAX_HTML_CHARS = 200_000` (~50K tokens) after stripping `<script>`/`<style>`/`<noscript>`/comments. Output capped at `MAX_OUTPUT_TOKENS = 4096`. `stripPreamble()` removes "Here is the extracted markdown" prefixes the model sometimes leaks despite the system prompt.
+`pipeline/src/extraction/extract.ts` uses `@cf/meta/llama-3.2-3b-instruct` (128K context). Input HTML is capped at `MAX_HTML_CHARS = 200_000` (~50K tokens) after stripping `<script>`/`<style>`/`<noscript>`/comments. Output capped at `MAX_OUTPUT_TOKENS = 4096`. `stripPreamble()` removes "Here is the extracted markdown" prefixes the model sometimes leaks despite the system prompt.
 
 ### Demo-URL fallback only
 
-The MISS path in `src/pipeline/routes/fetch.ts` only catches `extractMarkdown` throws if the URL matches `c.env.DEMO_URL`. Every other extraction failure (empty extraction, model error, oversized prompt) propagates uncaught and Hono returns 500. The benchmark showed ~7/20 URLs hit this — **a known weakness; don't surprise yourself with bare 500s.**
+The MISS path in `pipeline/src/routes/fetch.ts` only catches `extractMarkdown` throws if the URL matches `c.env.DEMO_URL`. Every other extraction failure (empty extraction, model error, oversized prompt) propagates uncaught and Hono returns 500. The benchmark showed ~7/20 URLs hit this — **a known weakness; don't surprise yourself with bare 500s.**
 
 ## Plans (executable specs)
 
@@ -104,7 +106,7 @@ Curated reports (suitable for sharing) live in `report/` — date-prefixed, with
 
 ## Common pitfalls
 
-- **Cloudflare account picker.** This developer machine has multiple Cloudflare accounts; `wrangler.toml` pins `account_id` to the correct one. Removing that line will make every wrangler command prompt or fail in non-interactive mode.
+- **Cloudflare account picker.** This developer machine has multiple Cloudflare accounts; both `pipeline/wrangler.toml` and `ledger/wrangler.jsonc` pin `account_id` to the correct one. Removing those lines will make every wrangler command prompt or fail in non-interactive mode.
 - **Subdomain aliases.** `agentify.<account>.workers.dev` still responds (Cloudflare keeps old aliases live after rename) but the canonical deploy is `aicorn.<account>.workers.dev`. Plugin config and bench default URL both use the new name.
 - **Stale KV entries.** Some KV cache entries pre-date the ledger access-control rollout and now return `404 url_not_processed` from the access check. The bench's smart-retry handles this by appending `?_aicorn_bust=<ts>` once. New code shouldn't need to think about it.
 - **The skill double-encodes.** If a URL with `%XX` escapes is passed through the `aicorn:fetch` skill, it can be percent-encoded twice. Decode-then-encode-once is the right normalization.

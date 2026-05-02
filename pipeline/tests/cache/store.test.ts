@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { env } from "cloudflare:test";
-import { readCache, writeCache, bumpHitCount } from "../../../src/pipeline/cache/store";
-import type { CacheEntry } from "../../../src/pipeline/cache/types";
+import { readCache, writeCache, bumpHitCount } from "../../src/cache/store";
+import type { CacheEntry } from "../../src/cache/types";
 
 const sampleKey = "cache:abc";
 const sample: CacheEntry = {

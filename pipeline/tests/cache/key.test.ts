@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { cacheKey } from "../../../src/pipeline/cache/key";
+import { cacheKey } from "../../src/cache/key";
 
 describe("cacheKey", () => {
   it("produces a stable sha256-prefixed key for a URL", async () => {

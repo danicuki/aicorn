@@ -48,4 +48,4 @@ done
 echo "→ Starting aicorn pipeline on :$PIPELINE_PORT..."
 echo "    Service binding LEDGER → aicorn-ledger (resolves to localhost:$LEDGER_PORT)"
 echo
-npx wrangler dev --port "$PIPELINE_PORT"
+( cd pipeline && npx wrangler dev --port "$PIPELINE_PORT" )

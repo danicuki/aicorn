@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { estimateTokens } from "../../../src/pipeline/lib/tokens";
+import { estimateTokens } from "../../src/lib/tokens";
 
 describe("estimateTokens", () => {
   it("returns 0 for empty string", () => {

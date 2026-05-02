@@ -1,37 +1,15 @@
 {
-  "name": "agentify",
-  "version": "1.0.0",
-  "directories": {
-    "doc": "docs"
-  },
+  "name": "aicorn",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Aicorn — shared, credit-metered cache for agent-friendly web content. Monorepo with two Workers (pipeline + ledger), a benchmark, and a Claude Code plugin.",
   "scripts": {
-    "dev": "wrangler dev --port 8787",
     "dev:all": "./scripts/dev-all.sh",
-    "deploy": "wrangler deploy",
-    "deploy:all": "./scripts/deploy-all.sh",
-    "test": "vitest run",
-    "typecheck": "tsc --noEmit"
+    "deploy:all": "./scripts/deploy-all.sh"
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/telepenin/agentify.git"
+    "url": "git+https://github.com/telepenin/aicorn.git"
   },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
-  "bugs": {
-    "url": "https://github.com/telepenin/agentify/issues"
-  },
-  "homepage": "https://github.com/telepenin/agentify#readme",
-  "description": "",
-  "dependencies": {
-    "hono": "^4.12.16"
-  },
-  "devDependencies": {
-    "@cloudflare/vitest-pool-workers": "^0.15.2",
-    "@cloudflare/workers-types": "^4.20260501.1",
-    "typescript": "^6.0.3",
-    "vitest": "^4.1.5",
-    "wrangler": "^4.87.0"
-  }
+  "license": "MIT"
 }

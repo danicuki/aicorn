@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { detectAgent } from "../../../src/pipeline/lib/agent";
+import { detectAgent } from "../../src/lib/agent";
 
 describe("detectAgent", () => {
   it("detects ClaudeBot via User-Agent", () => {

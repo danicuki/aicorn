@@ -1,7 +1,7 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "aicorn-ledger",
-  "main": "../src/ledger/index.ts",
+  "main": "src/index.ts",
   "compatibility_date": "2025-05-01",
   "account_id": "a3f6110ffb293b679a2005dba4bb43dd",
   "d1_databases": [
