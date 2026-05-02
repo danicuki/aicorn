@@ -50,21 +50,42 @@ Useful if we needed cookie-banner clicks, scrolling, or selector-based waits. We
 
 Multi-page crawling. Not what we're doing.
 
-## Free-tier limits to plan around
+## Limits and costs (verified 2026-05-03)
 
-From `developers.cloudflare.com/browser-run/limits`:
+Source: <https://developers.cloudflare.com/browser-rendering/limits>, <https://developers.cloudflare.com/browser-rendering/pricing>.
 
-- **10 minutes of browser hours per day** (per account)
-- **3 concurrent browsers per account**
-- **1 new browser instance every 20 seconds**
-- **60-second browser timeout**
-- **1 Quick Action request every 10 seconds** ← this is the one that bites in dev
+Browser hours are a **shared monthly budget** across REST and Workers Bindings — both pull from the same bucket. Concurrent browser limits apply to bindings only.
 
-Implications for our 5-hour build:
+| | **Workers Free** | **Workers Paid** (this project) |
+|---|---|---|
+| Browser hours included | 10 min / day | 10 hours / month |
+| Browser hours overage | hard cap, 429 after | $0.09 per additional hour |
+| REST API rate limit | 6 req / min | 600 req / min |
+| Concurrent browsers (bindings) | 3 | 10 included (monthly avg), $2.00 / additional |
+| New browser instances / min (bindings) | 3 | 30 |
+| Per-browser timeout | 60 s | 60 s |
+| Concurrent ceiling (raisable on request) | 3 | 30 |
 
-- Burning the 10-Quick-Actions-per-100-seconds limit in dev is easy. Every `wrangler dev --remote` test against `/fetch` with a non-cached URL = one Quick Action.
-- **Cache aggressively in dev.** Once a URL is in KV, subsequent dev requests hit the cache and don't touch Browser Rendering.
-- The 10-second-between-requests cadence would tank a live demo with multiple judges hammering the URL. **Pre-warming (Task 11 in the plan) is now more important, not less.**
+**Pricing model:** billed by wall-clock browser time, no per-request fee. `$0.09/hour ≈ $0.000025/second`. A typical `/markdown` call takes 3–8 s, so per-render unit cost on overage is ~$0.000125 (about 0.0125¢/page).
+
+**Cost at scale** (after the 10-hour/month included grant, ~5 s avg per render):
+
+| Renders / month | Browser hours | Paid cost |
+|---|---|---|
+| 1,000 | 1.4 h | $0 (within grant) |
+| 7,200 | 10 h | $0 (matches grant) |
+| 50,000 | 69 h | $5.31 |
+| 500,000 | 694 h | $61.56 |
+
+Implications for our 5-hour build (we're on Paid):
+
+- The 600 RPM Paid limit is a non-issue for the demo (judge traffic is well under 10 req/s). On Free's 6 RPM, even sequential testing crawls.
+- The included 10 hours/month is generous — hackathon-scale traffic stays inside the grant by orders of magnitude.
+- Browser hours are **per-account**, not per-Worker. If anything else on Mikhail's account uses Browser Rendering it eats from the same 10-hour grant.
+- **Cache aggressively in dev** — once a URL is in KV, subsequent requests hit the cache and don't touch Browser Rendering. This still matters for cost predictability, not just rate limits.
+- **Pre-warming (Task 11) remains mandatory** — not for rate-limit dodging anymore (we're on Paid), but to keep every judge-visible request as a sub-100-ms HIT instead of a 3–8 s MISS.
+
+**Note on stale numbers:** earlier drafts of this plan cited "1 Quick Action every 10 seconds" and "1 new instance every 20 seconds." Those were prior limits. The current shape (6/min Free, 600/min Paid; 3/min Free, 30/min Paid for new instances) is verified above.
 
 ## Integration into the cache-extraction plan
 
