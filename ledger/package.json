@@ -6,13 +6,16 @@
   "scripts": {
     "dev": "wrangler dev --port 8788",
     "deploy": "wrangler deploy",
+    "test": "vitest run",
     "typecheck": "tsc --noEmit",
     "migrate:local": "wrangler d1 migrations apply agentify-ledger --local",
     "migrate:remote": "wrangler d1 migrations apply agentify-ledger --remote"
   },
   "devDependencies": {
+    "@cloudflare/vitest-pool-workers": "^0.15.2",
     "@cloudflare/workers-types": "^4.20260501.1",
     "typescript": "^6.0.3",
+    "vitest": "^4.1.5",
     "wrangler": "^4.87.0"
   }
 }
