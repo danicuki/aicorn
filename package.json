@@ -5,7 +5,8 @@
   "description": "Aicorn — shared, credit-metered cache for agent-friendly web content. Monorepo with two Workers (pipeline + ledger), a benchmark, and a Claude Code plugin.",
   "scripts": {
     "dev:all": "./scripts/dev-all.sh",
-    "deploy:all": "./scripts/deploy-all.sh"
+    "deploy:all": "./scripts/deploy-all.sh",
+    "smoke": "./scripts/smoke.sh"
   },
   "repository": {
     "type": "git",
