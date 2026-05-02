@@ -1,0 +1,82 @@
+name: CI/CD
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+# Cancel in-flight runs for the same branch when a new commit lands.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: test (${{ matrix.dir }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - dir: pipeline
+            run-tests: true
+          - dir: ledger
+            run-tests: true
+          - dir: bench
+            run-tests: false  # bench has its own `bench` script, no `test`
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: ${{ matrix.dir }}/package-lock.json
+      - name: install
+        working-directory: ${{ matrix.dir }}
+        run: npm ci
+      - name: typecheck
+        working-directory: ${{ matrix.dir }}
+        run: npm run typecheck
+      - name: test
+        if: matrix.run-tests
+        working-directory: ${{ matrix.dir }}
+        run: npm test
+
+  deploy:
+    name: deploy (ledger first, then pipeline)
+    needs: test
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    # Match the wrangler.toml/jsonc account_id so the deploy lands on the
+    # same Cloudflare account; the API token is what actually authorises.
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: |
+            ledger/package-lock.json
+            pipeline/package-lock.json
+
+      # Ledger first — applies any new D1 migrations before the deploy so a
+      # schema change rolls out atomically with the code that needs it.
+      # wrangler tracks applied migrations in d1_migrations and skips re-runs.
+      - name: ledger — install + migrations + deploy
+        working-directory: ledger
+        run: |
+          npm ci
+          npx wrangler d1 migrations apply agentify-ledger --remote
+          npx wrangler deploy
+
+      # Pipeline second. Its [[services]] binding to "aicorn-ledger" is
+      # late-bound; ledger-first only matters to close the brief window
+      # where a pipeline could 502 on a missing binding target.
+      - name: pipeline — install + deploy
+        working-directory: pipeline
+        run: |
+          npm ci
+          npx wrangler deploy

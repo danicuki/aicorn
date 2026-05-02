@@ -38,6 +38,15 @@ Root holds **only orchestration**: `scripts/`, `docs/`, `report/`, `assets/`, `.
 
 **Both Workers at once:** from repo root, `npm run dev:all` spawns ledger (:8788) + pipeline (:8787); `npm run deploy:all` deploys ledger first then pipeline. Both wrap `scripts/dev-all.sh` / `scripts/deploy-all.sh`, which `cd` into each subproject in turn.
 
+## CI/CD
+
+`.github/workflows/ci.yml` runs on every push and PR to `main`:
+
+- **test job** (matrix: pipeline, ledger, bench) — `npm ci` + `npm run typecheck` + `npm test` (skipped for `bench`, which has no `test` script). Tests for both Workers run in parallel.
+- **deploy job** — gated on tests passing, only on push to `main` (not on PRs). Deploys ledger first (with `wrangler d1 migrations apply --remote`), then pipeline. wrangler tracks D1 migrations in `d1_migrations`, so re-runs are no-ops.
+
+Required GitHub secret: `CLOUDFLARE_API_TOKEN` — generate at Cloudflare dashboard → My Profile → API Tokens with permissions: Workers Scripts (Edit), Workers KV (Edit), Workers AI (Edit), D1 (Edit), Account Settings (Read). The `account_id` is pinned in both `wrangler.toml` / `wrangler.jsonc` so no separate `CLOUDFLARE_ACCOUNT_ID` secret is needed.
+
 ## Architecture you can't infer from one file
 
 ### Two Workers, one Service Binding
