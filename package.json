@@ -6,7 +6,9 @@
   },
   "scripts": {
     "dev": "wrangler dev --port 8787",
+    "dev:all": "./scripts/dev-all.sh",
     "deploy": "wrangler deploy",
+    "deploy:all": "./scripts/deploy-all.sh",
     "test": "vitest run",
     "typecheck": "tsc --noEmit"
   },

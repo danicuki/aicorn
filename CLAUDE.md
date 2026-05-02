@@ -32,6 +32,8 @@ Plus: `docs/superpowers/plans/` (executable plans, see "Plans" below), `report/`
 
 `ledger/` D1 migrations: `npm run migrate:local` / `npm run migrate:remote`.
 
+**Both at once:** from repo root, `npm run dev:all` spawns ledger (:8788) + pipeline (:8787); `npm run deploy:all` deploys ledger first then pipeline. Both shell out to `scripts/dev-all.sh` / `scripts/deploy-all.sh`, which export `CLOUDFLARE_ACCOUNT_ID` from the root `wrangler.toml` so the ledger lands on the same account without duplicating the value in `ledger/wrangler.jsonc`.
+
 ## Architecture you can't infer from one file
 
 ### Two Workers, one Service Binding
